@@ -1,0 +1,72 @@
+#ifndef __DND_SERVER__
+#define __DND_SERVER__
+
+#include <map>
+
+#include <boost/asio.hpp>
+#include <glibmm.h>
+
+#include "server.h"
+#include "client.h"
+#include "uuid.h"
+
+/* Actual server implementation */
+class DnDServerImpl : public Engine::Server
+{
+public:
+  DnDServerImpl (boost::asio::io_service& io_service,
+                 short port);
+  ~DnDServerImpl ();
+
+protected:
+  virtual Engine::Client* create_client (boost::asio::io_service& io_service);
+
+private:
+  struct ClientId
+  {
+    ClientId (Engine::Client* client,
+              Engine::UuidManager::Uuid uuid,
+              const std::string& name)
+      : client (client),
+        uuid (uuid),
+        name (name)
+    {
+    }
+
+    Engine::Client* client;
+    Engine::UuidManager::Uuid uuid;
+    std::string name;
+  };
+
+  Glib::Thread* _network_worker_thread;
+  boost::asio::io_service& _io_service;
+  Engine::UuidManager _uuid_manager;
+  std::map<Engine::UuidManager::Uuid, ClientId> _client_id_map;
+  Engine::UuidManager::Uuid _dm_uuid;
+
+  void client_error_handler (Engine::Client* client,
+                             const boost::system::error_code& ec);
+  void client_message_handler (Engine::Client* client,
+                               void* message,
+                               size_t size);
+
+  void send_to_all (void* message,
+                    size_t size);
+  void send_to_all_except (Engine::Client* client,
+                           void* message,
+                           size_t size);
+  void network_thread ();
+};
+
+/* This class is just a facade for an io_service and DnDServerImpl */
+class DnDServer
+{
+public:
+  DnDServer (short port);
+
+private:
+  boost::asio::io_service _io_service;
+  DnDServerImpl _server;
+};
+
+#endif /* __DND_SERVER__ */
