@@ -4,16 +4,20 @@
 #include <QObject>
 
 #include "dnd_client.h"
+#include <QByteArray>
+
 #include "dnd_messages.h"
 #include "net_buffer_pool.h"
 #include "buffer.h"
 
 #pragma pack(1)
-  struct NetworkHeader
-  {
-    quint32 sync;
-    quint16 size;
-  };
+
+struct NetworkHeader
+{
+  quint32 sync;
+  quint16 size;
+};
+
 #pragma pack()
 
 DnDClient::DnDClient (QObject* parent)
@@ -44,7 +48,8 @@ void DnDClient::user_add_req (const QString& name)
   DnDUserAddReq* msg = (DnDUserAddReq*)new char[msg_size];
 
   msg->header.type = DND_USER_ADD_REQ;
-  memcpy (&msg->name, name.data (), name.size ());
+  QByteArray ascii_name = name.toAscii ();
+  memcpy (&msg->name, ascii_name.data (), ascii_name.size ());
 
   send_message (msg, msg_size);
 
@@ -58,7 +63,8 @@ void DnDClient::user_add_resp (Uuid uuid, const QString& name)
 
   msg->header.type = DND_USER_ADD_RESP;
   msg->uuid = uuid;
-  memcpy (&msg->name, name.data (), name.size ());
+  QByteArray ascii_name = name.toAscii ();
+  memcpy (&msg->name, ascii_name.data (), ascii_name.size ());
 
   send_message (msg, msg_size);
 
@@ -73,6 +79,24 @@ void DnDClient::user_del (Uuid uuid)
   msg.uuid = uuid;
 
   send_message (&msg, sizeof (msg));
+}
+
+void DnDClient::chat_message (Uuid src, Uuid dst, const QString& message,
+                              int flags)
+{
+  quint64 msg_size = sizeof (DnDChatMessage) - 1 + message.size ();
+  DnDChatMessage* msg = (DnDChatMessage*)new char[msg_size];
+
+  msg->header.type = DND_CHAT_MESSAGE;
+  msg->src_uuid = src;
+  msg->dst_uuid = dst;
+  QByteArray ascii_msg = message.toAscii ();
+  memcpy (&msg->message, ascii_msg.data (), ascii_msg.size ());
+  msg->flags = flags;
+
+  send_message (msg, msg_size);
+
+  delete [] msg;
 }
 
 void DnDClient::disconnected ()
@@ -142,7 +166,8 @@ quint64 DnDClient::parse_packet (const void* data, quint64 size)
   nparsed += _cur_msg_buff->fill (data, size);
 
   if (!_cur_msg_buff->get_available_size ()) {
-    handle_message ((DnDMessageHeader*)_cur_msg_buff->get_data ());
+    handle_message ((DnDMessageHeader*)_cur_msg_buff->get_data (),
+                    _cur_msg_buff->get_size ());
     NET_BUFFER_POOL.free (_cur_msg_buff);
     _cur_msg_buff = 0;
   }
@@ -150,21 +175,21 @@ quint64 DnDClient::parse_packet (const void* data, quint64 size)
   return nparsed;
 }
 
-void DnDClient::handle_message (const DnDMessageHeader* header)
+void DnDClient::handle_message (const DnDMessageHeader* header, quint64 size)
 {
   switch (header->type) {
     case DND_USER_ADD_REQ: {
       const DnDUserAddReq* msg = (DnDUserAddReq*)header;
-      QString name ((const QChar*)msg->name,
-                    sizeof (DnDUserAddReq) - offsetof (DnDUserAddReq, name));
+      QString name = QString::fromAscii (msg->name,
+        size - offsetof (DnDUserAddReq, name));
       user_add_req (this, name);
       break;
     }
 
     case DND_USER_ADD_RESP: {
       const DnDUserAddResp* msg = (DnDUserAddResp*)header;
-      QString name ((const QChar*)msg->name,
-                    sizeof (DnDUserAddResp) - offsetof (DnDUserAddResp, name));
+      QString name = QString::fromAscii (msg->name,
+        size - offsetof (DnDUserAddResp, name));
       user_add_resp (this, msg->uuid, name);
       break;
     }
@@ -172,6 +197,14 @@ void DnDClient::handle_message (const DnDMessageHeader* header)
     case DND_USER_DEL: {
       const DnDUserDel* msg = (DnDUserDel*)header;
       user_del (this, msg->uuid);
+      break;
+    }
+
+    case DND_CHAT_MESSAGE: {
+      const DnDChatMessage* msg = (DnDChatMessage*)header;
+      QString message = QString::fromAscii (msg->message,
+        size - offsetof (DnDChatMessage, message));
+      chat_message (this, msg->src_uuid, msg->dst_uuid, message, msg->flags);
       break;
     }
   }

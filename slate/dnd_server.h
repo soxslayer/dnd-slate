@@ -22,6 +22,8 @@ protected:
 private slots:
   void client_disconnected (DnDClient* client);
   void client_user_add_req (DnDClient* client, const QString& name);
+  void client_chat_message (DnDClient* client, Uuid src, Uuid dst,
+                            const QString& msg, int flags);
 
 private:
   struct ClientId

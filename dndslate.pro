@@ -1,8 +1,7 @@
 TEMPLATE = app
-INCLUDEPATH += engine slate
-LIBS = -lboost_system-mt
+INCLUDEPATH += slate
 QT += network
-CONFIG = qt debug
+CONFIG += debug
 
 DESTDIR = build
 OBJECTS_DIR = build/.obj
@@ -17,6 +16,7 @@ HEADERS += \
   slate/connect_dialog.h \
   slate/dnd_client.h \
   slate/dnd_server.h \
+  slate/player_list.h \
   slate/net_buffer_pool.h \
   slate/slate_window.h \
   slate/uuid.h
@@ -28,6 +28,7 @@ SOURCES += \
   slate/connect_dialog.cpp \
   slate/dnd_client.cpp \
   slate/dnd_server.cpp \
+  slate/player_list.cpp \
   slate/net_buffer_pool.cpp \
   slate/slate.cpp \
   slate/slate_window.cpp \

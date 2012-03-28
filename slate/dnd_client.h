@@ -24,11 +24,14 @@ signals:
   void user_add_req (DnDClient* client, const QString& name);
   void user_add_resp (DnDClient* client, Uuid uuid, const QString& name);
   void user_del (DnDClient* client, Uuid uuid);
+  void chat_message (DnDClient* client, Uuid src, Uuid dst,
+                     const QString& message, int flags);
 
 public slots:
   void user_add_req (const QString& name);
   void user_add_resp (Uuid uuid, const QString& name);
   void user_del (Uuid uuid);
+  void chat_message (Uuid src, Uuid dst, const QString& msg, int flags);
 
 private slots:
   void disconnected ();
@@ -42,7 +45,7 @@ private:
 
   void connect_signals ();
   quint64 parse_packet (const void* buff, quint64 size);
-  void handle_message (const DnDMessageHeader* header);
+  void handle_message (const DnDMessageHeader* header, quint64 size);
   void send_message (void* msg, quint64 size);
 };
 

@@ -44,7 +44,8 @@ struct DnDChatMessage
 {
   DnDMessageHeader header;
   quint8 flags;
-  quint32 uuid;
+  quint32 src_uuid;
+  quint32 dst_uuid;
   char message[1];
 };
 
