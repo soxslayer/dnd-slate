@@ -36,9 +36,12 @@ class QString;
 class QWidget;
 class QStandardItem;
 class QStandardItemModel;
+class QModelIndex;
 
 class PlayerList : public QListView
 {
+  Q_OBJECT
+
 public:
   PlayerList (QWidget* parent = 0);
 
@@ -49,6 +52,12 @@ public:
   Uuid get_player_uuid (const QString& name) const;
   QString get_my_name () const { return get_player_name (_my_uuid); }
   Uuid get_my_uuid () const { return _my_uuid; }
+
+signals:
+  void player_activated (Uuid uuid);
+
+protected slots:
+  void item_double_clicked (const QModelIndex& index);
 
 private:
   QStandardItemModel* _model;

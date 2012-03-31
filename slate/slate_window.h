@@ -59,6 +59,7 @@ private slots:
   void user_del (DnDClient* client, Uuid);
   void chat_message (DnDClient* client, Uuid src, Uuid dst,
                      const QString& message, int flags);
+  void player_activated (Uuid uuid);
 
 private:
   QString _bin_path;

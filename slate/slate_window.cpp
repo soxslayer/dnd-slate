@@ -87,6 +87,8 @@ SlateWindow::SlateWindow (const QString& bin_path)
 
   _player_list = new PlayerList (this);
   main_layout->addWidget (_player_list, 0, 0);
+  connect (_player_list, SIGNAL (player_activated (Uuid)),
+           this, SLOT (player_activated (Uuid)));
 
   setCentralWidget (main_frame);
 }
@@ -224,6 +226,14 @@ void SlateWindow::chat_message (DnDClient* client, Uuid src, Uuid dst,
     who = _player_list->get_player_name (src);
 
   _chat_widget->insert_message (message, who, chat_widget_flags);
+}
+
+void SlateWindow::player_activated (Uuid uuid)
+{
+  QString n_entry = _player_list->get_player_name (uuid);
+  n_entry.prepend ("/w ");
+  n_entry.append (" ");
+  _chat_widget->set_entry (n_entry);
 }
 
 void SlateWindow::disconnect_client ()

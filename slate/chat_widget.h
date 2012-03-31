@@ -52,6 +52,7 @@ public:
   void insert_status (const QString& status);
   void insert_message (const QString& message, const QString& who,
                        int flags);
+  void set_entry (const QString& entry);
 
 signals:
   void send_message (const QString& who, const QString& message);

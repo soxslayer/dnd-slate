@@ -29,6 +29,7 @@
 #include <QStandardItem>
 #include <QString>
 #include <QAbstractItemView>
+#include <QModelIndex>
 
 #include "player_list.h"
 
@@ -39,6 +40,9 @@ PlayerList::PlayerList (QWidget* parent)
 
   setModel (_model);
   setEditTriggers (QAbstractItemView::NoEditTriggers);
+
+  connect (this, SIGNAL (doubleClicked (const QModelIndex&)),
+           this, SLOT (item_double_clicked (const QModelIndex&)));
 }
 
 void PlayerList::add_player (Uuid uuid, const QString& name)
@@ -98,4 +102,10 @@ Uuid PlayerList::get_player_uuid (const QString& name) const
   }
 
   return (Uuid)-1;
+}
+
+void PlayerList::item_double_clicked (const QModelIndex& index)
+{
+  QString name = index.data ().toString ();
+  player_activated (get_player_uuid (name));
 }

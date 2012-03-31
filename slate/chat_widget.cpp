@@ -109,6 +109,13 @@ void ChatWidget::insert_message (const QString& message, const QString& who,
   }
 }
 
+void ChatWidget::set_entry (const QString& entry)
+{
+  _chat_entry->clear ();
+  _chat_entry->insert (entry);
+  _chat_entry->setFocus ();
+}
+
 void ChatWidget::send_button_pressed ()
 {
   QString msg = _chat_entry->text ();

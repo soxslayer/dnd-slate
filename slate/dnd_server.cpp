@@ -93,6 +93,8 @@ void DnDServer::client_user_add_req (DnDClient* client, const QString& name)
     c_name.prepend (dm_prefix);
   }
 
+  c_name.replace (' ', '_');
+
   client->user_add_resp (uuid, c_name);
 
   QMap<Uuid, ClientId*>::iterator beg = _client_map.begin ();
