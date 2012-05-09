@@ -47,6 +47,9 @@ private:
   QLineEdit* _host_edit;
   QLineEdit* _port_edit;
   QLineEdit* _name_edit;
+
+private slots:
+  void verify_input ();
 };
 
 #endif /* __CONNECT_DIALOG__ */

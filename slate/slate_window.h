@@ -38,13 +38,15 @@ class DnDServer;
 class DnDClient;
 class ChatWidget;
 class PlayerList;
+class GameBoard;
+class QByteArray;
 
 class SlateWindow : public QMainWindow
 {
   Q_OBJECT;
 
 public:
-  SlateWindow (const QString& bin_path);
+  SlateWindow ();
   ~SlateWindow () { }
 
 private slots:
@@ -52,25 +54,38 @@ private slots:
   void quit_triggered (bool checked);
   void connect_triggered (bool checked);
   void disconnect_triggered (bool checked);
+  void add_tile_triggered (bool checked);
   void server_connected ();
   void server_disconnected ();
   void send_message (const QString& who, const QString& message);
+  void comm_proto_resp (DnDClient* client, quint16 major, quint16 minor);
+  void server_message (DnDClient* client, const QString& msg, int flags);
   void user_add_resp (DnDClient* client, Uuid uuid, const QString& name);
   void user_del (DnDClient* client, Uuid);
   void chat_message (DnDClient* client, Uuid src, Uuid dst,
                      const QString& message, int flags);
+  void map_begin (DnDClient* client, quint32 size, quint32 id);
+  void map_data (DnDClient* client, quint32 id, quint32 sequence,
+                 const uchar* data, quint64 size);
+  void map_end (DnDClient* client, quint32 id);
+  void add_tile (DnDClient* client, quint32 uuid, quint8 type, quint16 x,
+                 quint16 y, quint16 w, quint16 h, const QString& text);
   void player_activated (Uuid uuid);
 
 private:
-  QString _bin_path;
+  QAction* _open_action;
   QAction* _connect_action;
   QAction* _disconnect_action;
+  QAction* _add_tile_action;
   QLabel* _status_label;
   ChatWidget* _chat_widget;
   PlayerList* _player_list;
   DnDServer* _server;
   DnDClient* _client;
   QString _name;
+  GameBoard* _board;
+  QByteArray* _map_buff;
+  quint32 _map_transfer_id;
 
   void disconnect_client ();
 };

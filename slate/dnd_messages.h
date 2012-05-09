@@ -29,19 +29,54 @@
 
 #include <QtGlobal>
 
+#define COMM_PROTO_MAJOR 0
+#define COMM_PROTO_MINOR 1
+
 #define SYNC_FIELD 0xdeadbeef
 
 /* Message Types */
-#define DND_USER_ADD_REQ 0
-#define DND_USER_ADD_RESP 1
-#define DND_USER_DEL 2
-#define DND_CHAT_MESSAGE 3
+#define DND_COMM_PROTO_REQ 0
+#define DND_COMM_PROTO_RESP 1
+#define DND_SERVER_MESSAGE 2
+#define DND_USER_ADD_REQ 3
+#define DND_USER_ADD_RESP 4
+#define DND_USER_DEL 5
+#define DND_CHAT_MESSAGE 6
+#define DND_LOAD_IMAGE 7
+#define DND_IMAGE_BEGIN 8
+#define DND_IMAGE_DATA 9
+#define DND_IMAGE_END 10
+#define DND_ADD_TILE 11
 
 #pragma pack(1)
 
 struct DnDMessageHeader
 {
   quint16 type;
+};
+
+struct DnDCommProtoReq
+{
+  DnDMessageHeader header;
+};
+
+struct DnDCommProtoResp
+{
+  DnDMessageHeader header;
+  quint16 major;
+  quint16 minor;
+};
+
+/* Server message flags*/
+#define MESSAGE_ERROR 1
+#define MESSAGE_WARN 2
+#define MESSAGE_INFO 4
+
+struct DnDServerMessage
+{
+  DnDMessageHeader header;
+  quint8 flags;
+  char msg[1];
 };
 
 struct DnDUserAddReq
@@ -73,6 +108,47 @@ struct DnDChatMessage
   quint32 src_uuid;
   quint32 dst_uuid;
   char message[1];
+};
+
+struct DnDLoadImage
+{
+  DnDMessageHeader header;
+  char file_name[1];
+};
+
+struct DnDImageBegin
+{
+  DnDMessageHeader header;
+  quint32 total_size;
+  quint32 id;
+};
+
+#define DND_IMAGE_MAX_CHUNK_SIZE 1024
+
+struct DnDImageData
+{
+  DnDMessageHeader header;
+  quint32 id;
+  quint32 sequence;
+  uchar data[1];
+};
+
+struct DnDImageEnd
+{
+  DnDMessageHeader header;
+  quint32 id;
+};
+
+struct DnDAddTile
+{
+  DnDMessageHeader header;
+  quint32 uuid;
+  quint8 type;
+  quint16 x;
+  quint16 y;
+  quint16 w;
+  quint16 h;
+  char text[1];
 };
 
 #pragma pack()

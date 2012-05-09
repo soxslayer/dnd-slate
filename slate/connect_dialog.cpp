@@ -28,6 +28,7 @@
 #include <QGridLayout>
 #include <QPushButton>
 #include <QLabel>
+#include <QMessageBox>
 
 #include "connect_dialog.h"
 
@@ -56,10 +57,25 @@ ConnectDialog::ConnectDialog (QWidget* parent)
 
   QPushButton* button = new QPushButton ("&Ok", this);
   button->setDefault (true);
-  connect (button, SIGNAL (pressed ()), this, SLOT (accept ()));
+  connect (button, SIGNAL (pressed ()), this, SLOT (verify_input ()));
   layout->addWidget (button, 3, 0);
 
   button = new QPushButton ("&Cancel", this);
   connect (button, SIGNAL (pressed ()), this, SLOT (reject ()));
   layout->addWidget (button, 3, 1);
+}
+
+void ConnectDialog::verify_input ()
+{
+  if (_port_edit->text ().isEmpty ()) {
+    QMessageBox::critical (this, "Error", "Port required");
+    return;
+  }
+
+  if (_name_edit->text ().isEmpty ()) {
+    QMessageBox::critical (this, "Error", "Name required");
+    return;
+  }
+
+  accept ();
 }

@@ -43,6 +43,9 @@ PlayerList::PlayerList (QWidget* parent)
 
   connect (this, SIGNAL (doubleClicked (const QModelIndex&)),
            this, SLOT (item_double_clicked (const QModelIndex&)));
+
+  setMaximumWidth (150);
+  setSizePolicy (QSizePolicy::Minimum, QSizePolicy::Minimum);
 }
 
 void PlayerList::add_player (Uuid uuid, const QString& name)

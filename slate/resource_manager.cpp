@@ -24,33 +24,9 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <QApplication>
-#include <QProcessEnvironment>
-#include <QMessageBox>
-#include <QDir>
+#include "resource_manager.h"
 
-#include "slate_window.h"
-
-int main (int argc, char** argv)
+ResourceManager::ResourceManager (QObject* parent)
+  : QObject (parent)
 {
-  QApplication app (argc, argv);
-  SlateWindow window;
-
-  if (QProcessEnvironment::systemEnvironment ().contains ("DND_SLATE_IMAGES"))
-    QDir::addSearchPath ("image",
-      QProcessEnvironment::systemEnvironment ().value ("DND_SLATE_IMAGES"));
-  else
-    QDir::addSearchPath ("image",
-      QCoreApplication::applicationDirPath () + "/images");
-
-  QDir images_test ("image:.");
-  if (!images_test.exists ()) {
-    QMessageBox::critical (0, "Error", "Cannot find image directory. "
-                     "Try setting DND_SLATE_IMAGES in your environment.");
-    return 1;
-  }
-
-  window.show ();
-
-  return app.exec ();
 }

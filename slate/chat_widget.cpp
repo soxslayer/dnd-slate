@@ -47,6 +47,8 @@ ChatWidget::ChatWidget (QWidget* parent)
 
   _chat_history = new QTextEdit (this);
   _chat_history->setReadOnly (true);
+  _chat_history->setMaximumHeight (100);
+  _chat_history->setSizePolicy (QSizePolicy::Minimum, QSizePolicy::Minimum);
   layout->addWidget (_chat_history, 0, 0, 1, 2);
 
   _chat_entry = new QLineEdit (this);

@@ -24,33 +24,46 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <QApplication>
-#include <QProcessEnvironment>
-#include <QMessageBox>
-#include <QDir>
+#ifndef __TILE_SELECT_DIALOG__
+#define __TILE_SELECT_DIALOG__
 
-#include "slate_window.h"
+#include <QDialog>
 
-int main (int argc, char** argv)
+class QWidget;
+class QFrame;
+class QLineEdit;
+
+class TileSelectDialog : public QDialog
 {
-  QApplication app (argc, argv);
-  SlateWindow window;
+  Q_OBJECT
 
-  if (QProcessEnvironment::systemEnvironment ().contains ("DND_SLATE_IMAGES"))
-    QDir::addSearchPath ("image",
-      QProcessEnvironment::systemEnvironment ().value ("DND_SLATE_IMAGES"));
-  else
-    QDir::addSearchPath ("image",
-      QCoreApplication::applicationDirPath () + "/images");
+public:
+  typedef enum {
+    SelectLoad,
+    SelectCustom
+  } SelectionType;
 
-  QDir images_test ("image:.");
-  if (!images_test.exists ()) {
-    QMessageBox::critical (0, "Error", "Cannot find image directory. "
-                     "Try setting DND_SLATE_IMAGES in your environment.");
-    return 1;
-  }
+  TileSelectDialog (QWidget* parent = 0);
 
-  window.show ();
+  SelectionType get_selection_type () const;
+  QString get_filename () const;
+  int get_width () const;
+  int get_height () const;
+  QString get_text () const;
 
-  return app.exec ();
-}
+private slots:
+  void load_tile_toggled (bool checked);
+  void custom_tile_toggled (bool checked);
+  void choose_button_pressed ();
+  void verify_input ();
+
+private:
+  QFrame* _load_tile_frame;
+  QFrame* _custom_tile_frame;
+  QLineEdit* _load_tile_line_edit;
+  QLineEdit* _width_line_edit;
+  QLineEdit* _height_line_edit;
+  QLineEdit* _text_line_edit;
+};
+
+#endif /* __TILE_SELECT_DIALOG__ */

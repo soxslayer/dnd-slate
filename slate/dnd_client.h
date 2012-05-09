@@ -47,17 +47,37 @@ public:
 
 signals:
   void disconnected (DnDClient* client);
+  void comm_proto_req (DnDClient* client);
+  void comm_proto_resp (DnDClient* client, quint16 major, quint16 minor);
+  void server_message (DnDClient* client, const QString& message, int flags);
   void user_add_req (DnDClient* client, const QString& name);
   void user_add_resp (DnDClient* client, Uuid uuid, const QString& name);
   void user_del (DnDClient* client, Uuid uuid);
   void chat_message (DnDClient* client, Uuid src, Uuid dst,
                      const QString& message, int flags);
+  void load_image (DnDClient* client, const QString& file_name);
+  void image_begin (DnDClient* client, quint32 total_size, quint32 id);
+  void image_data (DnDClient* client, quint32 id, quint32 sequence,
+                   const uchar* data, quint64 size);
+  void image_end (DnDClient* client, quint32 id);
+  void add_tile (DnDClient* client, quint32 uuid, quint8 type, quint16 x,
+                 quint16 y, quint16 w, quint16 h, const QString& text);
 
 public slots:
+  void comm_proto_req ();
+  void comm_proto_resp (quint16 major, quint16 minor);
+  void server_message (const QString& message, int flags);
   void user_add_req (const QString& name);
   void user_add_resp (Uuid uuid, const QString& name);
   void user_del (Uuid uuid);
   void chat_message (Uuid src, Uuid dst, const QString& msg, int flags);
+  void load_image (const QString& file_name);
+  void image_begin (quint32 total_size, quint32 id);
+  void image_data (quint32 id, quint32 sequence, const uchar* data,
+                   quint64 size);
+  void image_end (quint32 id);
+  void add_tile (quint32 uuid, quint8 type, quint16 x, quint16 y, quint16 w,
+                 quint16 h, const QString& text);
 
 private slots:
   void disconnected ();

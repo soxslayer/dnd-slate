@@ -29,10 +29,12 @@
 
 #include <QTcpServer>
 #include <QMap>
+#include <QByteArray>
 
 #include "uuid.h"
 
 class DnDClient;
+class Tile;
 
 class DnDServer : public QTcpServer
 {
@@ -47,9 +49,14 @@ protected:
 
 private slots:
   void client_disconnected (DnDClient* client);
+  void client_comm_proto_req (DnDClient* client);
   void client_user_add_req (DnDClient* client, const QString& name);
   void client_chat_message (DnDClient* client, Uuid src, Uuid dst,
                             const QString& msg, int flags);
+  void client_load_image (DnDClient* client, const QString& file_name);
+  void client_add_tile (DnDClient* client, quint32 uuid, quint8 type,
+                        quint16 x, quint16 y, quint16 w, quint16 h,
+                        const QString& text);
 
 private:
   struct ClientId
@@ -62,7 +69,12 @@ private:
 
   UuidManager _uuid_manager;
   Uuid _dm_uuid;
+  DnDClient* _dm_client;
+  QByteArray _map_data;
   QMap<Uuid, ClientId*> _client_map;
+  QList<Tile*> _tiles;
+
+  void send_map (DnDClient* client);
 };
 
 #endif /* __DND_SERVER__ */
