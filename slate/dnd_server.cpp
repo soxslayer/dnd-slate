@@ -60,10 +60,16 @@ void DnDServer::incomingConnection (int socketDescriptor)
     SLOT (client_chat_message (DnDClient*, Uuid, Uuid, const QString&, int)));
   connect (client, SIGNAL (load_image (DnDClient*, const QString&)),
            this, SLOT (client_load_image (DnDClient*, const QString&)));
-  connect (client, SIGNAL (add_tile (DnDClient*, quint32, quint8, quint16,
+  connect (client, SIGNAL (add_tile (DnDClient*, Uuid, quint8, quint16,
                            quint16, quint16, quint16, const QString&)),
-           this, SLOT (client_add_tile (DnDClient*, quint32, quint8, quint16,
+           this, SLOT (client_add_tile (DnDClient*, Uuid, quint8, quint16,
                        quint16, quint16, quint16, const QString&)));
+  connect (client, SIGNAL (move_tile (DnDClient*, Uuid, Uuid, quint16,
+                           quint16)),
+           this, SLOT (client_move_tile (DnDClient*, Uuid, Uuid,
+                       quint16, quint16)));
+  connect (client, SIGNAL (delete_tile (DnDClient*, Uuid, Uuid)),
+           this, SLOT (client_delete_tile (DnDClient*, Uuid, Uuid)));
   connect (client, SIGNAL (disconnected (DnDClient*)),
            this, SLOT (client_disconnected (DnDClient*)));
 }
@@ -128,14 +134,14 @@ void DnDServer::client_user_add_req (DnDClient* client, const QString& name)
 
   _client_map.insert (uuid, new ClientId (c_name, client));
 
-  QList<Tile*>::iterator t_beg = _tiles.begin ();
-  QList<Tile*>::iterator t_end = _tiles.end ();
+  QMap<Uuid, Tile*>::iterator t_beg = _tile_map.begin ();
+  QMap<Uuid, Tile*>::iterator t_end = _tile_map.end ();
 
   for (; t_beg != t_end; ++t_beg) {
     Tile* tile = *t_beg;
-    client->add_tile (tile->get_uuid (), tile->get_type (), tile->x (),
-                      tile->y (), tile->width (), tile->height (),
-                      tile->get_text ());
+    client->add_tile (tile->get_uuid (), tile->get_type (), tile->get_x (),
+                      tile->get_y (), tile->get_width (),
+                      tile->get_height (), tile->get_text ());
   }
 }
 
@@ -178,7 +184,7 @@ void DnDServer::client_load_image (DnDClient* client, const QString& file_name)
     send_map ((*beg)->client);
 }
 
-void DnDServer::client_add_tile (DnDClient* client, quint32 uuid, quint8 type,
+void DnDServer::client_add_tile (DnDClient* client, Uuid uuid, quint8 type,
                                  quint16 x, quint16 y, quint16 w, quint16 h,
                                  const QString& text)
 {
@@ -197,12 +203,70 @@ void DnDServer::client_add_tile (DnDClient* client, quint32 uuid, quint8 type,
   QMap<Uuid, ClientId*>::iterator end = _client_map.end ();
 
   for (; beg != end; ++beg) {
-    (*beg)->client->add_tile (tile->get_uuid (), tile->get_type (), tile->x (),
-                              tile->y (), tile->width (), tile->height (),
+    (*beg)->client->add_tile (tile->get_uuid (), tile->get_type (),
+                              tile->get_x (), tile->get_y (),
+                              tile->get_width (), tile->get_height (),
                               tile->get_text ());
   }
 
-  _tiles.append (tile);
+  _tile_map.insert (tile->get_uuid (), tile);
+}
+
+void DnDServer::client_move_tile (DnDClient* client, Uuid player_uuid,
+                                  Uuid tile_uuid, quint16 x, quint16 y)
+{
+  QMap<Uuid, Tile*>::iterator tile_iter = _tile_map.find (tile_uuid);
+
+  if (tile_iter == _tile_map.end ()) {
+    client->server_message ("Invalid tile UUID", MESSAGE_ERROR);
+    return;
+  }
+
+  Tile* tile = *tile_iter;
+
+  if (!tile->get_perm (player_uuid, Tile::PERM_MOVE)) {
+    client->server_message ("Move permission not granted", MESSAGE_ERROR);
+    return;
+  }
+
+  tile->set_x (x);
+  tile->set_y (y);
+
+  QMap<Uuid, ClientId*>::iterator beg = _client_map.begin ();
+  QMap<Uuid, ClientId*>::iterator end = _client_map.end ();
+
+  for (; beg != end; ++beg) {
+    (*beg)->client->move_tile (player_uuid, tile->get_uuid (), tile->get_x (),
+                               tile->get_y ());
+  }
+}
+
+void DnDServer::client_delete_tile (DnDClient* client, Uuid player_uuid,
+                                    Uuid tile_uuid)
+{
+  QMap<Uuid, Tile*>::iterator tile_iter = _tile_map.find (tile_uuid);
+
+  if (tile_iter == _tile_map.end ()) {
+    client->server_message ("Invalid tile UUID", MESSAGE_ERROR);
+    return;
+  }
+
+  Tile* tile = *tile_iter;
+
+  if (!tile->get_perm (player_uuid, Tile::PERM_MOVE)) {
+    client->server_message ("Move permission not granted", MESSAGE_ERROR);
+    return;
+  }
+
+  QMap<Uuid, ClientId*>::iterator beg = _client_map.begin ();
+  QMap<Uuid, ClientId*>::iterator end = _client_map.end ();
+
+  for (; beg != end; ++beg)
+    (*beg)->client->delete_tile (player_uuid, tile_uuid);
+
+  _tile_map.remove (tile_uuid);
+
+  delete tile;
 }
 
 void DnDServer::send_map (DnDClient* client)

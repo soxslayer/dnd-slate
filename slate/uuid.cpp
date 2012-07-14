@@ -34,5 +34,10 @@ UuidManager::UuidManager (QObject* parent)
 
 Uuid UuidManager::get_uuid ()
 {
-  return _uuid++;
+  Uuid uuid = UUID_INVALID;
+
+  while (uuid == UUID_INVALID)
+    uuid = _uuid++;
+
+  return uuid;
 }

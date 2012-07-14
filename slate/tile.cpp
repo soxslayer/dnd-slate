@@ -3,41 +3,13 @@
 Tile::Tile (Uuid uuid, const QString& text, TileType type,  int x, int y,
             int w, int h, QObject* parent)
   : QObject (parent),
-    QRect (x, y, w, h),
     _text (text),
     _uuid (uuid),
-    _type (type)
-{
-}
-
-Tile::Tile (Uuid uuid, const QString& text, TileType type, const QRect& pos,
-            QObject* parent)
-  : QObject (parent),
-    QRect (pos),
-    _text (text),
-    _uuid (uuid),
-    _type (type)
-{
-}
-
-Tile::Tile (Uuid uuid, const QString& text, TileType type,
-            const QPoint& top_left, const QPoint& bottom_right,
-            QObject* parent)
-  : QObject (parent),
-    QRect (top_left, bottom_right),
-    _text (text),
-    _uuid (uuid),
-    _type (type)
-{
-}
-
-Tile::Tile (Uuid uuid, const QString& text, TileType type,
-            const QPoint& top_left, const QSize& size, QObject* parent)
-  : QObject (parent),
-    QRect (top_left, size),
-    _text (text),
-    _uuid (uuid),
-    _type (type)
+    _type (type),
+    _x (x),
+    _y (y),
+    _width (w),
+    _height (h)
 {
 }
 

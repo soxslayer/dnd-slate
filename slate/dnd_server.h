@@ -54,9 +54,13 @@ private slots:
   void client_chat_message (DnDClient* client, Uuid src, Uuid dst,
                             const QString& msg, int flags);
   void client_load_image (DnDClient* client, const QString& file_name);
-  void client_add_tile (DnDClient* client, quint32 uuid, quint8 type,
+  void client_add_tile (DnDClient* client, Uuid uuid, quint8 type,
                         quint16 x, quint16 y, quint16 w, quint16 h,
                         const QString& text);
+  void client_move_tile (DnDClient* client, Uuid player_uuid,
+                         Uuid tile_uuid, quint16 x, quint16 y);
+  void client_delete_tile (DnDClient* client, Uuid player_uuid,
+                           Uuid tile_uuid);
 
 private:
   struct ClientId
@@ -72,7 +76,7 @@ private:
   DnDClient* _dm_client;
   QByteArray _map_data;
   QMap<Uuid, ClientId*> _client_map;
-  QList<Tile*> _tiles;
+  QMap<Uuid, Tile*> _tile_map;
 
   void send_map (DnDClient* client);
 };

@@ -47,6 +47,8 @@
 #define DND_IMAGE_DATA 9
 #define DND_IMAGE_END 10
 #define DND_ADD_TILE 11
+#define DND_MOVE_TILE 12
+#define DND_DELETE_TILE 13
 
 #pragma pack(1)
 
@@ -149,6 +151,22 @@ struct DnDAddTile
   quint16 w;
   quint16 h;
   char text[1];
+};
+
+struct DnDMoveTile
+{
+  DnDMessageHeader header;
+  quint32 player_uuid;
+  quint32 tile_uuid;
+  quint16 x;
+  quint16 y;
+};
+
+struct DnDDeleteTile
+{
+  DnDMessageHeader header;
+  quint32 player_uuid;
+  quint32 tile_uuid;
 };
 
 #pragma pack()

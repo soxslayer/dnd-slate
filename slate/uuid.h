@@ -34,6 +34,8 @@ typedef quint32 Uuid;
 class UuidManager : public QObject
 {
 public:
+  enum { UUID_INVALID = 0 };
+
   UuidManager (QObject* parent = 0);
 
   Uuid get_uuid ();

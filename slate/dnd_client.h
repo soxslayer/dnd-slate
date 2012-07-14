@@ -60,8 +60,11 @@ signals:
   void image_data (DnDClient* client, quint32 id, quint32 sequence,
                    const uchar* data, quint64 size);
   void image_end (DnDClient* client, quint32 id);
-  void add_tile (DnDClient* client, quint32 uuid, quint8 type, quint16 x,
+  void add_tile (DnDClient* client, Uuid uuid, quint8 type, quint16 x,
                  quint16 y, quint16 w, quint16 h, const QString& text);
+  void move_tile (DnDClient* client, Uuid player_uuid, Uuid tile_uuid,
+                  quint16 x, quint16 y);
+  void delete_tile (DnDClient* client, Uuid player_uuid, Uuid tile_uuid);
 
 public slots:
   void comm_proto_req ();
@@ -76,8 +79,11 @@ public slots:
   void image_data (quint32 id, quint32 sequence, const uchar* data,
                    quint64 size);
   void image_end (quint32 id);
-  void add_tile (quint32 uuid, quint8 type, quint16 x, quint16 y, quint16 w,
+  void add_tile (Uuid uuid, quint8 type, quint16 x, quint16 y, quint16 w,
                  quint16 h, const QString& text);
+  void move_tile (Uuid player_uuid, Uuid tile_uuid,
+                  quint16 x, quint16 y);
+  void delete_tile (Uuid player_uuid, Uuid tile_uuid);
 
 private slots:
   void disconnected ();

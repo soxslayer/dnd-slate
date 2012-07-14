@@ -55,6 +55,7 @@ private slots:
   void connect_triggered (bool checked);
   void disconnect_triggered (bool checked);
   void add_tile_triggered (bool checked);
+  void delete_tile_triggered (bool checked);
   void server_connected ();
   void server_disconnected ();
   void send_message (const QString& who, const QString& message);
@@ -68,15 +69,20 @@ private slots:
   void map_data (DnDClient* client, quint32 id, quint32 sequence,
                  const uchar* data, quint64 size);
   void map_end (DnDClient* client, quint32 id);
-  void add_tile (DnDClient* client, quint32 uuid, quint8 type, quint16 x,
+  void add_tile (DnDClient* client, Uuid uuid, quint8 type, quint16 x,
                  quint16 y, quint16 w, quint16 h, const QString& text);
+  void move_tile (DnDClient* client, Uuid player_uuid, Uuid tile_uuid,
+                  quint16 x, quint16 y);
+  void delete_tile (DnDClient* client, Uuid player_uuid, Uuid tile_uuid);
   void player_activated (Uuid uuid);
+  void tile_moved (Uuid uuid, int x, int y);
 
 private:
   QAction* _open_action;
   QAction* _connect_action;
   QAction* _disconnect_action;
   QAction* _add_tile_action;
+  QAction* _delete_tile_action;
   QLabel* _status_label;
   ChatWidget* _chat_widget;
   PlayerList* _player_list;

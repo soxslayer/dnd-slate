@@ -86,6 +86,11 @@ SlateWindow::SlateWindow ()
   connect (_add_tile_action, SIGNAL (triggered (bool)),
            this, SLOT (add_tile_triggered (bool)));
 
+  _delete_tile_action = menu->addAction ("&Delete Tile");
+  _delete_tile_action->setEnabled (false);
+  connect (_delete_tile_action, SIGNAL (triggered (bool)),
+           this, SLOT (delete_tile_triggered (bool)));
+
   QFrame* main_frame = new QFrame (this);
   main_frame->setFrameStyle (0);
 
@@ -106,6 +111,8 @@ SlateWindow::SlateWindow ()
 
   _board = new GameBoard (this);
   main_layout->addWidget (_board, 0, 0);
+  connect (_board, SIGNAL (tile_moved (Uuid, int, int)),
+           this, SLOT (tile_moved (Uuid, int, int)));
 
   setCentralWidget (main_frame);
 }
@@ -173,10 +180,16 @@ void SlateWindow::connect_triggered (bool checked)
                          const uchar*, quint64)));
     connect (_client, SIGNAL (image_end (DnDClient*, quint32)),
              this, SLOT (map_end (DnDClient*, quint32)));
-    connect (_client, SIGNAL (add_tile (DnDClient*, quint32, quint8, quint16,
+    connect (_client, SIGNAL (add_tile (DnDClient*, Uuid, quint8, quint16,
                               quint16, quint16, quint16, const QString&)),
-             this, SLOT (add_tile (DnDClient*, quint32, quint8, quint16,
+             this, SLOT (add_tile (DnDClient*, Uuid, quint8, quint16,
                          quint16, quint16, quint16, const QString&)));
+    connect (_client, SIGNAL (move_tile (DnDClient*, Uuid, Uuid,
+                              quint16, quint16)),
+             this, SLOT (move_tile (DnDClient*, Uuid, Uuid,
+                         quint16, quint16)));
+    connect (_client, SIGNAL (delete_tile (DnDClient*, Uuid, Uuid)),
+             this, SLOT (delete_tile (DnDClient*, Uuid, Uuid)));
     connect (_client, SIGNAL (connected ()),
              this, SLOT (server_connected ()));
     connect (_client, SIGNAL (disconnected ()),
@@ -212,6 +225,16 @@ void SlateWindow::add_tile_triggered (bool checked)
         break;
     }
   }
+}
+
+void SlateWindow::delete_tile_triggered (bool checked)
+{
+  (void)checked;
+
+  Uuid selected_uuid = _board->get_selected_uuid ();
+
+  if (selected_uuid != UuidManager::UUID_INVALID)
+    _client->delete_tile (_player_list->get_my_uuid (), selected_uuid);
 }
 
 void SlateWindow::server_connected ()
@@ -258,6 +281,7 @@ void SlateWindow::comm_proto_resp (DnDClient* client, quint16 major,
     _connect_action->setEnabled (false);
     _disconnect_action->setEnabled (true);
     _add_tile_action->setEnabled (true);
+    _delete_tile_action->setEnabled (true);
     _chat_widget->setEnabled (true);
 
     _status_label->setText ("Connected");
@@ -356,7 +380,7 @@ void SlateWindow::map_end (DnDClient* client, quint32 id)
   delete _map_buff;
 }
 
-void SlateWindow::add_tile (DnDClient* client, quint32 uuid, quint8 type,
+void SlateWindow::add_tile (DnDClient* client, Uuid uuid, quint8 type,
                             quint16 x, quint16 y, quint16 w, quint16 h,
                             const QString& text)
 {
@@ -367,8 +391,6 @@ void SlateWindow::add_tile (DnDClient* client, quint32 uuid, quint8 type,
   switch (type) {
     case Tile::TILE_CUSTOM: {
       tile = new CustomTile (uuid, w, h, text);
-      tile->set_x (x);
-      tile->set_y (y);
 
       break;
     }
@@ -379,14 +401,33 @@ void SlateWindow::add_tile (DnDClient* client, quint32 uuid, quint8 type,
       QDir tile_path (path);
 
       tile = new ImageTile (uuid, tile_path.absolutePath ());
-      tile->set_x (x);
-      tile->set_y (y);
 
       break;
     }
   }
 
   _board->add_tile (tile);
+  tile->set_x (x);
+  tile->set_y (y);
+}
+
+void SlateWindow::move_tile (DnDClient* client, Uuid player_uuid,
+                             Uuid tile_uuid, quint16 x, quint16 y)
+{
+  (void)client;
+  (void)player_uuid;
+
+  _board->move_tile (tile_uuid, x, y);
+}
+
+void SlateWindow::delete_tile (DnDClient* client, Uuid player_uuid,
+                               Uuid tile_uuid)
+{
+  (void)client;
+  (void)player_uuid;
+
+  qDebug () << "Delete tile";
+  _board->delete_tile (tile_uuid);
 }
 
 void SlateWindow::player_activated (Uuid uuid)
@@ -397,12 +438,18 @@ void SlateWindow::player_activated (Uuid uuid)
   _chat_widget->set_entry (n_entry);
 }
 
+void SlateWindow::tile_moved (Uuid uuid, int x, int y)
+{
+  _client->move_tile (_player_list->get_my_uuid (), uuid, x, y);
+}
+
 void SlateWindow::disconnect_client ()
 {
   _open_action->setEnabled (false);
   _connect_action->setEnabled (true);
   _disconnect_action->setEnabled (false);
   _add_tile_action->setEnabled (false);
+  _delete_tile_action->setEnabled (false);
   _chat_widget->setEnabled (false);
   _player_list->clear ();
   _board->clear_map ();
