@@ -76,9 +76,9 @@ void PlayerList::clear ()
   QMap<Uuid, QStandardItem*>::iterator beg = _client_id_map.begin ();
   QMap<Uuid, QStandardItem*>::iterator end = _client_id_map.end ();
 
-  for (; beg != end; ++beg) {
+  while (beg != end) {
     _model->removeRow ((*beg)->row ());
-    _client_id_map.erase (beg);
+    beg = _client_id_map.erase (beg);
   }
 }
 
