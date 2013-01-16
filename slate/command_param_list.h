@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Dustin Mitchell dmmitche <at> gmail <dot> com
+/* Copyright (c) 2013, Dustin Mitchell dmmitche <at> gmail <dot> com
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -24,36 +24,38 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <QApplication>
-#include <QProcessEnvironment>
-#include <QMessageBox>
-#include <QDir>
+#ifndef __COMMAND_PARAM_LIST__
+#define __COMMAND_PARAM_LIST__
 
-#include "slate_window.h"
-#include "command_manager.h"
+#include <vector>
+#include <string>
 
-int main (int argc, char** argv)
+class CommandParam;
+
+class CommandParamList
 {
-  QApplication app (argc, argv);
-  SlateWindow window;
+public:
+  typedef std::vector<CommandParam*>::const_iterator const_iterator;
 
-  CommandManager::init ();
+  static const CommandParamList EMPTY_LIST;
 
-  if (QProcessEnvironment::systemEnvironment ().contains ("DND_SLATE_IMAGES"))
-    QDir::addSearchPath ("image",
-      QProcessEnvironment::systemEnvironment ().value ("DND_SLATE_IMAGES"));
-  else
-    QDir::addSearchPath ("image",
-      QCoreApplication::applicationDirPath () + "/images");
+  ~CommandParamList ();
 
-  QDir images_test ("image:.");
-  if (!images_test.exists ()) {
-    QMessageBox::critical (0, "Error", "Cannot find image directory. "
-                     "Try setting DND_SLATE_IMAGES in your environment.");
-    return 1;
-  }
+  int size () const { return _params.size (); }
+  bool verify_signature (const std::string& sig) const;
+  const CommandParam* get_param (int index = 0) const;
+  void add_param (const CommandParam& param);
 
-  window.show ();
+  const_iterator begin () const { return _params.begin (); }
+  const_iterator end () const { return _params.end (); }
 
-  return app.exec ();
-}
+private:
+  typedef std::vector<CommandParam*>::iterator iterator;
+
+  std::vector<CommandParam*> _params;
+
+  iterator begin () { return _params.begin (); }
+  iterator end () { return _params.end (); }
+};
+
+#endif /* __COMMAND_PARAM_LIST__ */

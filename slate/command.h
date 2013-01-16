@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Dustin Mitchell dmmitche <at> gmail <dot> com
+/* Copyright (c) 2013, Dustin Mitchell dmmitche <at> gmail <dot> com
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -24,36 +24,38 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <QApplication>
-#include <QProcessEnvironment>
-#include <QMessageBox>
-#include <QDir>
+#ifndef __COMMAND__
+#define __COMMAND__
 
-#include "slate_window.h"
-#include "command_manager.h"
+class CommandParamList;
 
-int main (int argc, char** argv)
+class CommandBase
 {
-  QApplication app (argc, argv);
-  SlateWindow window;
+public:
+  virtual ~CommandBase () { }
 
-  CommandManager::init ();
+  virtual bool execute (const CommandParamList& params) = 0;
+};
 
-  if (QProcessEnvironment::systemEnvironment ().contains ("DND_SLATE_IMAGES"))
-    QDir::addSearchPath ("image",
-      QProcessEnvironment::systemEnvironment ().value ("DND_SLATE_IMAGES"));
-  else
-    QDir::addSearchPath ("image",
-      QCoreApplication::applicationDirPath () + "/images");
+template<typename T>
+class Command : public CommandBase
+{
+public:
+  typedef bool (T::*CommandCallback)(const CommandParamList&);
 
-  QDir images_test ("image:.");
-  if (!images_test.exists ()) {
-    QMessageBox::critical (0, "Error", "Cannot find image directory. "
-                     "Try setting DND_SLATE_IMAGES in your environment.");
-    return 1;
+  Command (T* obj, CommandCallback callback)
+    : _obj (obj), _callback (callback)
+  {
   }
 
-  window.show ();
+  virtual bool execute (const CommandParamList& params)
+  {
+    return (_obj->*_callback) (params);
+  }
 
-  return app.exec ();
-}
+private:
+  T* _obj;
+  CommandCallback _callback;
+};
+
+#endif /* __COMMAND__ */

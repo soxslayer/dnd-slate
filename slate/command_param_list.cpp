@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Dustin Mitchell dmmitche <at> gmail <dot> com
+/* Copyright (c) 2013, Dustin Mitchell dmmitche <at> gmail <dot> com
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -24,36 +24,48 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <QApplication>
-#include <QProcessEnvironment>
-#include <QMessageBox>
-#include <QDir>
+#include "command_param_list.h"
+#include "command_param.h"
 
-#include "slate_window.h"
-#include "command_manager.h"
+using namespace std;
 
-int main (int argc, char** argv)
+const CommandParamList CommandParamList::EMPTY_LIST;
+
+CommandParamList::~CommandParamList ()
 {
-  QApplication app (argc, argv);
-  SlateWindow window;
+  iterator p = begin ();
+  iterator p_end = end ();
 
-  CommandManager::init ();
+  for (; p != p_end; ++p)
+    delete *p;
+}
 
-  if (QProcessEnvironment::systemEnvironment ().contains ("DND_SLATE_IMAGES"))
-    QDir::addSearchPath ("image",
-      QProcessEnvironment::systemEnvironment ().value ("DND_SLATE_IMAGES"));
-  else
-    QDir::addSearchPath ("image",
-      QCoreApplication::applicationDirPath () + "/images");
+bool CommandParamList::verify_signature (const string& sig) const
+{
+  string::const_iterator c = sig.begin ();
+  string::const_iterator c_end = sig.end ();
+  const_iterator p = begin ();
+  const_iterator p_end = end ();
+  bool verified = true;
 
-  QDir images_test ("image:.");
-  if (!images_test.exists ()) {
-    QMessageBox::critical (0, "Error", "Cannot find image directory. "
-                     "Try setting DND_SLATE_IMAGES in your environment.");
-    return 1;
-  }
+  for (; c != c_end && p != p_end && verified; ++c, ++p)
+    verified = (*p)->verify_type (*c);
 
-  window.show ();
+  if (c != c_end || p != p_end)
+    verified = false;
 
-  return app.exec ();
+  return verified;
+}
+
+const CommandParam* CommandParamList::get_param (int index) const
+{
+  if (index >= _params.size ())
+    return 0;
+
+  return _params[index];
+}
+
+void CommandParamList::add_param (const CommandParam& param)
+{
+  _params.push_back (new CommandParam (param));
 }

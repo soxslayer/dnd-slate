@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Dustin Mitchell dmmitche <at> gmail <dot> com
+/* Copyright (c) 2013, Dustin Mitchell dmmitche <at> gmail <dot> com
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -24,36 +24,41 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <QApplication>
-#include <QProcessEnvironment>
-#include <QMessageBox>
-#include <QDir>
+#ifndef __COMMAND_PARAM__
+#define __COMMAND_PARAM__
 
-#include "slate_window.h"
-#include "command_manager.h"
+#include <string>
 
-int main (int argc, char** argv)
+class CommandParam
 {
-  QApplication app (argc, argv);
-  SlateWindow window;
+public:
+  typedef enum
+  {
+    TypeString,
+    TypeInt
+  } ParamType;
 
-  CommandManager::init ();
+  CommandParam (const std::string& str);
+  CommandParam (int i);
+  CommandParam (const CommandParam& p);
+  ~CommandParam ();
 
-  if (QProcessEnvironment::systemEnvironment ().contains ("DND_SLATE_IMAGES"))
-    QDir::addSearchPath ("image",
-      QProcessEnvironment::systemEnvironment ().value ("DND_SLATE_IMAGES"));
-  else
-    QDir::addSearchPath ("image",
-      QCoreApplication::applicationDirPath () + "/images");
+  const CommandParam& operator= (const CommandParam& p);
 
-  QDir images_test ("image:.");
-  if (!images_test.exists ()) {
-    QMessageBox::critical (0, "Error", "Cannot find image directory. "
-                     "Try setting DND_SLATE_IMAGES in your environment.");
-    return 1;
-  }
+  ParamType get_type () const { return _type; }
+  const std::string& get_str () const;
+  int get_int () const;
+  void clone (const CommandParam& p);
+  bool verify_type (char t);
 
-  window.show ();
+private:
+  union
+  {
+    std::string* _str;
+    int _i;
+  } _param;
 
-  return app.exec ();
-}
+  ParamType _type;
+};
+
+#endif /* __COMMAND_PARAM__ */

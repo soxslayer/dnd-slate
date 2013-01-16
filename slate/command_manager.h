@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Dustin Mitchell dmmitche <at> gmail <dot> com
+/* Copyright (c) 2013, Dustin Mitchell dmmitche <at> gmail <dot> com
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -24,36 +24,44 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <QApplication>
-#include <QProcessEnvironment>
-#include <QMessageBox>
-#include <QDir>
+#ifndef __COMMAND_MANAGER__
+#define __COMMAND_MANAGER__
 
-#include "slate_window.h"
-#include "command_manager.h"
+#include <string>
+#include <map>
 
-int main (int argc, char** argv)
+#include "command.h"
+
+class CommandManager
 {
-  QApplication app (argc, argv);
-  SlateWindow window;
+public:
+  typedef std::map<std::string, CommandBase*>::iterator iterator;
+  typedef std::map<std::string, CommandBase*>::const_iterator const_iterator;
 
-  CommandManager::init ();
-
-  if (QProcessEnvironment::systemEnvironment ().contains ("DND_SLATE_IMAGES"))
-    QDir::addSearchPath ("image",
-      QProcessEnvironment::systemEnvironment ().value ("DND_SLATE_IMAGES"));
-  else
-    QDir::addSearchPath ("image",
-      QCoreApplication::applicationDirPath () + "/images");
-
-  QDir images_test ("image:.");
-  if (!images_test.exists ()) {
-    QMessageBox::critical (0, "Error", "Cannot find image directory. "
-                     "Try setting DND_SLATE_IMAGES in your environment.");
-    return 1;
+  static void init () { get_instance (); }
+  static void add_command (const std::string& name, CommandBase* cmd);
+  static CommandBase& get_command (const std::string& name);
+  template<typename T>
+  static T& get_typed_command (const std::string& name)
+  {
+    CommandManager* mgr = get_instance ();
+    return dynamic_cast<T&> (get_command (name));
   }
+  static iterator begin () { return get_instance ()->_cmds.begin (); }
+  static const_iterator c_begin () { return get_instance ()->_cmds.begin (); }
+  static iterator end () { return get_instance ()->_cmds.end (); }
+  static const_iterator c_end () { return get_instance ()->_cmds.end (); }
 
-  window.show ();
+private:
+  static CommandManager* _instance;
 
-  return app.exec ();
-}
+  static CommandManager* get_instance ();
+
+  std::map<std::string, CommandBase*> _cmds;
+
+  CommandManager () { }
+  CommandManager (const CommandManager& c) { }
+  const CommandManager& operator= (const CommandManager& c) { return *this; }
+};
+
+#endif /* __COMMAND_MANAGER__ */

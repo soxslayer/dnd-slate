@@ -24,36 +24,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <QApplication>
-#include <QProcessEnvironment>
-#include <QMessageBox>
-#include <QDir>
+#ifndef __LUE_BINDINGS__
+#define __LUE_BINDINGS__
 
-#include "slate_window.h"
-#include "command_manager.h"
+#include <string>
 
-int main (int argc, char** argv)
-{
-  QApplication app (argc, argv);
-  SlateWindow window;
+bool lua_run_script (const std::string& script);
 
-  CommandManager::init ();
-
-  if (QProcessEnvironment::systemEnvironment ().contains ("DND_SLATE_IMAGES"))
-    QDir::addSearchPath ("image",
-      QProcessEnvironment::systemEnvironment ().value ("DND_SLATE_IMAGES"));
-  else
-    QDir::addSearchPath ("image",
-      QCoreApplication::applicationDirPath () + "/images");
-
-  QDir images_test ("image:.");
-  if (!images_test.exists ()) {
-    QMessageBox::critical (0, "Error", "Cannot find image directory. "
-                     "Try setting DND_SLATE_IMAGES in your environment.");
-    return 1;
-  }
-
-  window.show ();
-
-  return app.exec ();
-}
+#endif /* __LUE_BINDINGS__ */

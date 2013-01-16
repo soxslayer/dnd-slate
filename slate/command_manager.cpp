@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Dustin Mitchell dmmitche <at> gmail <dot> com
+/* Copyright (c) 2013, Dustin Mitchell dmmitche <at> gmail <dot> com
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -24,36 +24,35 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <QApplication>
-#include <QProcessEnvironment>
-#include <QMessageBox>
-#include <QDir>
+#include <stdexcept>
 
-#include "slate_window.h"
 #include "command_manager.h"
 
-int main (int argc, char** argv)
+using namespace std;
+
+void CommandManager::add_command (const string& name, CommandBase* cmd)
 {
-  QApplication app (argc, argv);
-  SlateWindow window;
+  CommandManager* mgr = get_instance ();
 
-  CommandManager::init ();
+  if (mgr->_cmds.count (name) > 0)
+    return;
 
-  if (QProcessEnvironment::systemEnvironment ().contains ("DND_SLATE_IMAGES"))
-    QDir::addSearchPath ("image",
-      QProcessEnvironment::systemEnvironment ().value ("DND_SLATE_IMAGES"));
-  else
-    QDir::addSearchPath ("image",
-      QCoreApplication::applicationDirPath () + "/images");
+  mgr->_cmds.insert (pair<string, CommandBase*> (name, cmd));
+}
 
-  QDir images_test ("image:.");
-  if (!images_test.exists ()) {
-    QMessageBox::critical (0, "Error", "Cannot find image directory. "
-                     "Try setting DND_SLATE_IMAGES in your environment.");
-    return 1;
-  }
+CommandBase& CommandManager::get_command (const string& name)
+{
+  CommandManager* mgr = get_instance ();
 
-  window.show ();
+  return *mgr->_cmds.at (name);
+}
 
-  return app.exec ();
+CommandManager* CommandManager::_instance = 0;
+
+CommandManager* CommandManager::get_instance ()
+{
+  if (!_instance)
+    _instance = new CommandManager;
+
+  return _instance;
 }
