@@ -25,6 +25,8 @@
  */
 
 #include <QDebug>
+#include <QRunnable>
+#include <QThreadPool>
 #include <lua.hpp>
 
 #include "lua_bindings.h"
@@ -34,6 +36,75 @@
 #include "command_param_list.h"
 
 using namespace std;
+
+extern "C" int lua_command_callback (lua_State* L);
+
+static void lua_register_command (lua_State* L, const string& name,
+                                  const CommandBase* cmd)
+{
+  lua_pushlightuserdata (L, (void*)cmd);
+  lua_pushcclosure (L, lua_command_callback, 1);
+  lua_setglobal (L, name.c_str ());
+}
+
+static void lua_open_command_lib (lua_State* L)
+{
+  CommandManager::const_iterator cmd = CommandManager::c_begin ();
+  CommandManager::const_iterator cmd_end = CommandManager::c_end ();
+
+  for (; cmd != cmd_end; ++cmd)
+    lua_register_command (L, cmd->first, cmd->second);
+}
+
+static bool lua_get_async_context (lua_State* L)
+{
+  lua_rawgeti (L, LUA_REGISTRYINDEX, LUA_RIDX_GLOBALS);
+  lua_pushstring (L, "__async");
+  lua_gettable (L, -2);
+  bool async = lua_tointeger (L, -1);
+  lua_pop (L, 1);
+  return async;
+}
+
+static void lua_set_async_context (lua_State* L, bool async)
+{
+  lua_rawgeti (L, LUA_REGISTRYINDEX, LUA_RIDX_GLOBALS);
+  lua_pushstring (L, "__async");
+  lua_pushinteger (L, async);
+  lua_settable (L, -3);
+  lua_pop (L, 1);
+}
+
+static bool lua_start_script (const string& script, bool async = false)
+{
+  lua_State* L;
+
+  L = luaL_newstate ();
+  if (L == NULL)
+    return false;
+
+  luaL_openlibs (L);
+  lua_open_command_lib (L);
+  lua_set_async_context (L, async);
+
+  if (luaL_loadfile (L, script.c_str ()) != LUA_OK) {
+    qDebug () << "Error loading LUA script: " << lua_tostring (L, -1);
+    lua_close (L);
+    return false;
+  }
+
+  if (lua_pcall (L, 0, 0, 0) != LUA_OK) {
+    qDebug () << "Error running LUA script: " << lua_tostring (L, -1);
+    lua_close (L);
+    return false;
+  }
+
+  lua_close (L);
+
+  return true;
+}
+
+
 
 extern "C" int lua_command_callback (lua_State* L)
 {
@@ -61,54 +132,49 @@ extern "C" int lua_command_callback (lua_State* L)
 
   lua_settop (L, 0);
 
-  bool ret = cmd_ptr->execute (params);
+  bool ret;
+  
+  if (lua_get_async_context (L)) {
+    MarshaledCommand m (*cmd_ptr);
+    ret = m.execute (params);
+  }
+  else
+    ret = cmd_ptr->execute (params);
 
   lua_pushinteger (L, ret);
 
   return 1;
 }
 
-static void lua_register_command (lua_State* L, const string& name,
-                                  const CommandBase* cmd)
-{
-  lua_pushlightuserdata (L, (void*)cmd);
-  lua_pushcclosure (L, lua_command_callback, 1);
-  lua_setglobal (L, name.c_str ());
-}
 
-static void lua_open_command_lib (lua_State* L)
-{
-  CommandManager::const_iterator cmd = CommandManager::c_begin ();
-  CommandManager::const_iterator cmd_end = CommandManager::c_end ();
 
-  for (; cmd != cmd_end; ++cmd)
-    lua_register_command (L, cmd->first, cmd->second);
-}
+class LUAScriptThread : public QRunnable
+{
+public:
+  LUAScriptThread (const string& script)
+    : _script (script)
+  {
+  }
+
+  void run ()
+  {
+    lua_start_script (_script, true);
+  }
+
+private:
+  string _script;
+};
+
+
+
 
 bool lua_run_script (const string& script)
 {
-  lua_State* L;
+  return lua_start_script (script, false);
+}
 
-  L = luaL_newstate ();
-  if (L == NULL)
-    return false;
-
-  luaL_openlibs (L);
-  lua_open_command_lib (L);
-
-  if (luaL_loadfile (L, script.c_str ()) != LUA_OK) {
-    qDebug () << "Error loading LUA script: " << lua_tostring (L, -1);
-    lua_close (L);
-    return false;
-  }
-
-  if (lua_pcall (L, 0, 0, 0) != LUA_OK) {
-    qDebug () << "Error running LUA script: " << lua_tostring (L, -1);
-    lua_close (L);
-    return false;
-  }
-
-  lua_close (L);
-
-  return true;
+void lua_run_script_async (const string& script)
+{
+  LUAScriptThread* t = new LUAScriptThread (script);
+  QThreadPool::globalInstance ()->start (t);
 }

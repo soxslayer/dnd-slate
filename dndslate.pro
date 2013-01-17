@@ -35,6 +35,7 @@ SOURCES += \
   slate/buffer.cpp \
   slate/buffer_manager.cpp \
   slate/chat_widget.cpp \
+  slate/command.cpp \
   slate/command_manager.cpp \
   slate/command_param.cpp \
   slate/command_param_list.cpp \

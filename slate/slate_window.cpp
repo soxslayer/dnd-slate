@@ -48,9 +48,14 @@
 #include "tile.h"
 #include "custom_tile.h"
 #include "image_tile.h"
+#include "command.h"
+#include "command_param.h"
+#include "command_param_list.h"
+#include "command_manager.h"
 
 SlateWindow::SlateWindow ()
-  : _server (0)
+  : _server (0), _connect_command (this, &SlateWindow::connect_command),
+    _disconnect_command (this, &SlateWindow::disconnect_command)
 {
   QMenuBar* menu_bar = menuBar ();
 
@@ -115,6 +120,42 @@ SlateWindow::SlateWindow ()
            this, SLOT (tile_moved (Uuid, int, int)));
 
   setCentralWidget (main_frame);
+
+  CommandManager::add_command ("connect", &_connect_command);
+  CommandManager::add_command ("disconnect", &_disconnect_command);
+}
+
+bool SlateWindow::connect_command (const CommandParamList& params)
+{
+  QString host;
+  quint16 port;
+  QString name;
+
+  if (params.verify_signature ("sis")) {
+    host = params.get_param (0)->get_str ().c_str ();
+    port = (quint16)params.get_param (1)->get_int ();
+    name = params.get_param (2)->get_str ().c_str ();
+  }
+  else if (params.verify_signature ("is")) {
+    port = (quint16)params.get_param (0)->get_int ();
+    name = params.get_param (1)->get_str ().c_str ();
+  }
+  else {
+    qDebug () << "Invalid connect params";
+    return false;
+  }
+
+  connect_client (host, port, name);
+
+  return true;
+}
+
+bool SlateWindow::disconnect_command (const CommandParamList& params)
+{
+  disconnect_client ();
+  delete _client;
+
+  return true;
 }
 
 void SlateWindow::open_triggered (bool checked)
@@ -146,54 +187,8 @@ void SlateWindow::connect_triggered (bool checked)
   ConnectDialog diag (this);
 
   if (diag.exec ()) {
-    QString host = diag.get_host ();
-    QString port = diag.get_port ();
-    _name = diag.get_name ();
-
-    if (host.isEmpty ()) {
-      _server = new DnDServer (port.toShort ());
-      host = "localhost";
-    }
-
-    _client = new DnDClient (host, port.toShort ());
-
-    connect (_client, SIGNAL (comm_proto_resp (DnDClient*, quint16, quint16)),
-             this, SLOT (comm_proto_resp (DnDClient*, quint16, quint16)));
-    connect (_client, SIGNAL (server_message (DnDClient*, const QString&,
-                              int)),
-             this, SLOT (server_message (DnDClient*, const QString&, int)));
-    connect (_client, SIGNAL (user_add_resp (DnDClient*, Uuid,
-                              const QString&)),
-             this, SLOT (user_add_resp (DnDClient*, Uuid,
-                         const QString&)));
-    connect (_client, SIGNAL (user_del (DnDClient*, Uuid)),
-             this, SLOT (user_del (DnDClient*, Uuid)));
-    connect (_client,
-      SIGNAL (chat_message (DnDClient*, Uuid, Uuid, const QString&, int)),
-      this,
-      SLOT (chat_message (DnDClient*, Uuid, Uuid, const QString&, int)));
-    connect (_client, SIGNAL (image_begin (DnDClient*, quint32, quint32)),
-             this, SLOT (map_begin (DnDClient*, quint32, quint32)));
-    connect (_client, SIGNAL (image_data (DnDClient*, quint32, quint32,
-                              const uchar*, quint64)),
-             this, SLOT (map_data (DnDClient*, quint32, quint32,
-                         const uchar*, quint64)));
-    connect (_client, SIGNAL (image_end (DnDClient*, quint32)),
-             this, SLOT (map_end (DnDClient*, quint32)));
-    connect (_client, SIGNAL (add_tile (DnDClient*, Uuid, quint8, quint16,
-                              quint16, quint16, quint16, const QString&)),
-             this, SLOT (add_tile (DnDClient*, Uuid, quint8, quint16,
-                         quint16, quint16, quint16, const QString&)));
-    connect (_client, SIGNAL (move_tile (DnDClient*, Uuid, Uuid,
-                              quint16, quint16)),
-             this, SLOT (move_tile (DnDClient*, Uuid, Uuid,
-                         quint16, quint16)));
-    connect (_client, SIGNAL (delete_tile (DnDClient*, Uuid, Uuid)),
-             this, SLOT (delete_tile (DnDClient*, Uuid, Uuid)));
-    connect (_client, SIGNAL (connected ()),
-             this, SLOT (server_connected ()));
-    connect (_client, SIGNAL (disconnected ()),
-             this, SLOT (server_disconnected ()));
+    connect_client (diag.get_host (), diag.get_port ().toShort (),
+                    diag.get_name ());
   }
 }
 
@@ -460,4 +455,58 @@ void SlateWindow::disconnect_client ()
     delete _server;
 
   _status_label->setText ("Disconnected");
+}
+
+bool SlateWindow::connect_client (const QString& host, quint16 port,
+                                  const QString& name)
+{
+  QString my_host = host;
+  _name = name;
+
+  if (host.isEmpty ()) {
+    _server = new DnDServer (port);
+    my_host = "localhost";
+  }
+
+  _client = new DnDClient (my_host, port);
+
+  connect (_client, SIGNAL (comm_proto_resp (DnDClient*, quint16, quint16)),
+           this, SLOT (comm_proto_resp (DnDClient*, quint16, quint16)));
+  connect (_client, SIGNAL (server_message (DnDClient*, const QString&,
+                            int)),
+           this, SLOT (server_message (DnDClient*, const QString&, int)));
+  connect (_client, SIGNAL (user_add_resp (DnDClient*, Uuid,
+                            const QString&)),
+           this, SLOT (user_add_resp (DnDClient*, Uuid,
+                       const QString&)));
+  connect (_client, SIGNAL (user_del (DnDClient*, Uuid)),
+           this, SLOT (user_del (DnDClient*, Uuid)));
+  connect (_client,
+    SIGNAL (chat_message (DnDClient*, Uuid, Uuid, const QString&, int)),
+    this,
+    SLOT (chat_message (DnDClient*, Uuid, Uuid, const QString&, int)));
+  connect (_client, SIGNAL (image_begin (DnDClient*, quint32, quint32)),
+           this, SLOT (map_begin (DnDClient*, quint32, quint32)));
+  connect (_client, SIGNAL (image_data (DnDClient*, quint32, quint32,
+                            const uchar*, quint64)),
+           this, SLOT (map_data (DnDClient*, quint32, quint32,
+                       const uchar*, quint64)));
+  connect (_client, SIGNAL (image_end (DnDClient*, quint32)),
+           this, SLOT (map_end (DnDClient*, quint32)));
+  connect (_client, SIGNAL (add_tile (DnDClient*, Uuid, quint8, quint16,
+                            quint16, quint16, quint16, const QString&)),
+           this, SLOT (add_tile (DnDClient*, Uuid, quint8, quint16,
+                       quint16, quint16, quint16, const QString&)));
+  connect (_client, SIGNAL (move_tile (DnDClient*, Uuid, Uuid,
+                            quint16, quint16)),
+           this, SLOT (move_tile (DnDClient*, Uuid, Uuid,
+                       quint16, quint16)));
+  connect (_client, SIGNAL (delete_tile (DnDClient*, Uuid, Uuid)),
+           this, SLOT (delete_tile (DnDClient*, Uuid, Uuid)));
+  connect (_client, SIGNAL (connected ()),
+           this, SLOT (server_connected ()));
+  connect (_client, SIGNAL (disconnected ()),
+           this, SLOT (server_disconnected ()));
+
+  return true;
 }

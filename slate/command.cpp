@@ -24,25 +24,25 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <Qt>
+#include <QMetaType>
+
 #include "command.h"
 
-Command::Command (CommandHandler* obj, CommandCallback callback)
-  : _obj (obj), _callback (callback)
+MarshaledCommand::MarshaledCommand (CommandBase& base, QObject* parent)
+  : QObject (parent), _base (base)
 {
+  qRegisterMetaType<CommandMarshalReceiver::InfoType> (
+    "CommandMarshalReceiver::InfoType");
+  connect (this,
+           SIGNAL (marshal_command (CommandMarshalReceiver::InfoType)),
+           &CommandManager::get_marshal_receiver (),
+           SLOT (receive_command (CommandMarshalReceiver::InfoType)),
+           Qt::BlockingQueuedConnection);
 }
 
-Command::Command (const Command& cmd)
-  : _obj (cmd._obj), _callback (cmd._callback)
+bool MarshaledCommand::execute (const CommandParamList& params)
 {
-}
-
-const Command& Command::operator= (const Command& cmd)
-{
-  _obj = cmd._obj;
-  _callback = cmd._callback;
-}
-
-bool Command::execute (const CommandParamList& params)
-{
-  return (_obj->*_callback) (params);
+  return marshal_command (CommandMarshalReceiver::InfoType (&_base,
+                                                            &params));
 }

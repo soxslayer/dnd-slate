@@ -30,5 +30,6 @@
 #include <string>
 
 bool lua_run_script (const std::string& script);
+void lua_run_script_async (const std::string& script);
 
 #endif /* __LUE_BINDINGS__ */

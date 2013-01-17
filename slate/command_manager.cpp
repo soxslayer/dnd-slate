@@ -24,11 +24,22 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <stdexcept>
-
 #include "command_manager.h"
+#include "command.h"
 
 using namespace std;
+
+CommandMarshalReceiver::CommandMarshalReceiver (QObject* parent)
+  : QObject (parent)
+{
+}
+
+bool CommandMarshalReceiver::receive_command (InfoType info)
+{
+  return info.first->execute (*info.second);
+}
+
+
 
 void CommandManager::add_command (const string& name, CommandBase* cmd)
 {

@@ -31,6 +31,7 @@
 #include <QString>
 
 #include "uuid.h"
+#include "command.h"
 
 class QAction;
 class QLabel;
@@ -40,6 +41,7 @@ class ChatWidget;
 class PlayerList;
 class GameBoard;
 class QByteArray;
+class CommandParamList;
 
 class SlateWindow : public QMainWindow
 {
@@ -48,6 +50,9 @@ class SlateWindow : public QMainWindow
 public:
   SlateWindow ();
   ~SlateWindow () { }
+
+  bool connect_command (const CommandParamList& params);
+  bool disconnect_command (const CommandParamList& params);
 
 private slots:
   void open_triggered (bool checked);
@@ -92,8 +97,12 @@ private:
   GameBoard* _board;
   QByteArray* _map_buff;
   quint32 _map_transfer_id;
+  Command<SlateWindow> _connect_command;
+  Command<SlateWindow> _disconnect_command;
 
   void disconnect_client ();
+  bool connect_client (const QString& host, quint16 port,
+                       const QString& name);
 };
 
 #endif /* __SLATE_WINDOW__ */

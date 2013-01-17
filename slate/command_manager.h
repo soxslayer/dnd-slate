@@ -30,7 +30,26 @@
 #include <string>
 #include <map>
 
-#include "command.h"
+#include <QObject>
+#include <QPair>
+
+class CommandBase;
+class CommandParamList;
+
+class CommandMarshalReceiver : public QObject
+{
+  Q_OBJECT
+
+public:
+  typedef QPair<CommandBase*, const CommandParamList*> InfoType;
+
+  CommandMarshalReceiver (QObject* parent = 0);
+
+public slots:
+  bool receive_command (CommandMarshalReceiver::InfoType info);
+};
+
+
 
 class CommandManager
 {
@@ -51,6 +70,8 @@ public:
   static const_iterator c_begin () { return get_instance ()->_cmds.begin (); }
   static iterator end () { return get_instance ()->_cmds.end (); }
   static const_iterator c_end () { return get_instance ()->_cmds.end (); }
+  static CommandMarshalReceiver& get_marshal_receiver ()
+  { return get_instance ()->_marshal_receiver; }
 
 private:
   static CommandManager* _instance;
@@ -58,6 +79,7 @@ private:
   static CommandManager* get_instance ();
 
   std::map<std::string, CommandBase*> _cmds;
+  CommandMarshalReceiver _marshal_receiver;
 
   CommandManager () { }
   CommandManager (const CommandManager& c) { }

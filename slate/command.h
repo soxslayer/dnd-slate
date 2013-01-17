@@ -27,6 +27,10 @@
 #ifndef __COMMAND__
 #define __COMMAND__
 
+#include <QObject>
+
+#include "command_manager.h"
+
 class CommandParamList;
 
 class CommandBase
@@ -56,6 +60,22 @@ public:
 private:
   T* _obj;
   CommandCallback _callback;
+};
+
+class MarshaledCommand : public QObject, public CommandBase
+{
+  Q_OBJECT
+
+public:
+  MarshaledCommand (CommandBase& base, QObject* parent = 0);
+
+  virtual bool execute (const CommandParamList& params);
+
+signals:
+  bool marshal_command (CommandMarshalReceiver::InfoType info);
+
+private:
+  CommandBase& _base;
 };
 
 #endif /* __COMMAND__ */
