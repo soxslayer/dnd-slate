@@ -26,15 +26,25 @@
 
 #include <QHostAddress>
 #include <QFile>
+#include <QTimer>
 
 #include "dnd_server.h"
 #include "dnd_client.h"
 #include "dnd_messages.h"
 #include "tile.h"
 
+#define PING_PONG_INTERVAL 1000
+
 DnDServer::DnDServer (quint16 port)
 {
   listen (QHostAddress::Any, port);
+
+  QTimer* ping_pong_timer = new QTimer (this);
+
+  connect (ping_pong_timer, SIGNAL (timeout ()),
+           this, SLOT (ping_pong_timeout ()));
+
+  ping_pong_timer->start (PING_PONG_INTERVAL);
 }
 
 DnDServer::~DnDServer ()
@@ -72,6 +82,8 @@ void DnDServer::incomingConnection (int socketDescriptor)
            this, SLOT (client_delete_tile (DnDClient*, Uuid, Uuid)));
   connect (client, SIGNAL (disconnected (DnDClient*)),
            this, SLOT (client_disconnected (DnDClient*)));
+  connect (client, SIGNAL (ping_pong (DnDClient*, Uuid)),
+           this, SLOT (client_ping_pong (DnDClient*, Uuid)));
 }
 
 void DnDServer::client_disconnected (DnDClient* client)
@@ -132,7 +144,12 @@ void DnDServer::client_user_add_req (DnDClient* client, const QString& name)
     client->user_add_resp (c_beg.key (), (*c_beg)->name);
   }
 
-  _client_map.insert (uuid, new ClientId (c_name, client));
+  ClientId* cid = new ClientId (c_name, client);
+
+  cid->ping_pong.start ();
+  client->ping_pong (uuid);
+
+  _client_map.insert (uuid, cid);
 
   QMap<Uuid, Tile*>::iterator t_beg = _tile_map.begin ();
   QMap<Uuid, Tile*>::iterator t_end = _tile_map.end ();
@@ -267,6 +284,34 @@ void DnDServer::client_delete_tile (DnDClient* client, Uuid player_uuid,
   _tile_map.remove (tile_uuid);
 
   delete tile;
+}
+
+void DnDServer::client_ping_pong (DnDClient* client, Uuid player_uuid)
+{
+  ClientId* cid = _client_map[player_uuid];
+  int delay = cid->ping_pong.elapsed ();
+
+  cid->ping_pong.setHMS (99, 99, 99);
+
+  QMap<Uuid, ClientId*>::iterator beg = _client_map.begin ();
+  QMap<Uuid, ClientId*>::iterator end = _client_map.end ();
+
+  for (; beg != end; ++beg)
+    (*beg)->client->ping_pong_record (player_uuid, delay);
+}
+
+void DnDServer::ping_pong_timeout ()
+{
+  QMap<Uuid, ClientId*>::iterator beg = _client_map.begin ();
+  QMap<Uuid, ClientId*>::iterator end = _client_map.end ();
+
+  for (; beg != end; ++beg) {
+    if ((*beg)->ping_pong.isValid ())
+      continue;
+
+    (*beg)->ping_pong.restart ();
+    (*beg)->client->ping_pong (beg.key ());
+  }
 }
 
 void DnDServer::send_map (DnDClient* client)

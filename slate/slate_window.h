@@ -79,6 +79,8 @@ private slots:
   void move_tile (DnDClient* client, Uuid player_uuid, Uuid tile_uuid,
                   quint16 x, quint16 y);
   void delete_tile (DnDClient* client, Uuid player_uuid, Uuid tile_uuid);
+  void ping_pong (DnDClient* client, Uuid uuid);
+  void ping_pong_record (DnDClient* client, Uuid uuid, quint32 delay);
   void player_activated (Uuid uuid);
   void tile_moved (Uuid uuid, int x, int y);
 

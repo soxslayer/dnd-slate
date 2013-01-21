@@ -30,6 +30,7 @@
 #include <QTcpServer>
 #include <QMap>
 #include <QByteArray>
+#include <QTime>
 
 #include "uuid.h"
 
@@ -61,6 +62,8 @@ private slots:
                          Uuid tile_uuid, quint16 x, quint16 y);
   void client_delete_tile (DnDClient* client, Uuid player_uuid,
                            Uuid tile_uuid);
+  void client_ping_pong (DnDClient* client, Uuid player_uuid);
+  void ping_pong_timeout ();
 
 private:
   struct ClientId
@@ -69,6 +72,7 @@ private:
       : name (name), client (client) { }
     QString name;
     DnDClient* client;
+    QTime ping_pong;
   };
 
   UuidManager _uuid_manager;

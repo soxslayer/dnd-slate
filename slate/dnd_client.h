@@ -65,6 +65,8 @@ signals:
   void move_tile (DnDClient* client, Uuid player_uuid, Uuid tile_uuid,
                   quint16 x, quint16 y);
   void delete_tile (DnDClient* client, Uuid player_uuid, Uuid tile_uuid);
+  void ping_pong (DnDClient* client, Uuid player_uuid);
+  void ping_pong_record (DnDClient* client, Uuid player_uuid, quint32 delay);
 
 public slots:
   void comm_proto_req ();
@@ -84,6 +86,8 @@ public slots:
   void move_tile (Uuid player_uuid, Uuid tile_uuid,
                   quint16 x, quint16 y);
   void delete_tile (Uuid player_uuid, Uuid tile_uuid);
+  void ping_pong (Uuid player_uuid);
+  void ping_pong_record (Uuid player_uuid, quint32 delay);
 
 private slots:
   void disconnected ();

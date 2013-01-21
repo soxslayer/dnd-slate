@@ -30,7 +30,7 @@
 #include <QtGlobal>
 
 #define COMM_PROTO_MAJOR 0
-#define COMM_PROTO_MINOR 1
+#define COMM_PROTO_MINOR 2
 
 #define SYNC_FIELD 0xdeadbeef
 
@@ -49,6 +49,8 @@
 #define DND_ADD_TILE 11
 #define DND_MOVE_TILE 12
 #define DND_DELETE_TILE 13
+#define DND_PING_PONG 14
+#define DND_PING_PONG_RECORD 15
 
 #pragma pack(1)
 
@@ -167,6 +169,19 @@ struct DnDDeleteTile
   DnDMessageHeader header;
   quint32 player_uuid;
   quint32 tile_uuid;
+};
+
+struct DnDPingPong
+{
+  DnDMessageHeader header;
+  quint32 player_uuid;
+};
+
+struct DnDPingPongRecord
+{
+  DnDMessageHeader header;
+  quint32 player_uuid;
+  quint32 delay;
 };
 
 #pragma pack()

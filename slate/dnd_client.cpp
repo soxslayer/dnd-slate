@@ -257,6 +257,27 @@ void DnDClient::delete_tile (Uuid player_uuid, Uuid tile_uuid)
   send_message (&msg, sizeof (msg));
 }
 
+void DnDClient::ping_pong (Uuid player_uuid)
+{
+  DnDPingPong msg;
+
+  msg.header.type = DND_PING_PONG;
+  msg.player_uuid = player_uuid;
+
+  send_message (&msg, sizeof (msg));
+}
+
+void DnDClient::ping_pong_record (Uuid player_uuid, quint32 delay)
+{
+  DnDPingPongRecord msg;
+
+  msg.header.type = DND_PING_PONG_RECORD;
+  msg.player_uuid = player_uuid;
+  msg.delay = delay;
+
+  send_message (&msg, sizeof (msg));
+}
+
 void DnDClient::disconnected ()
 {
   disconnected (this);
@@ -436,6 +457,18 @@ void DnDClient::handle_message (const DnDMessageHeader* header, quint64 size)
     case DND_DELETE_TILE: {
       const DnDDeleteTile* msg = (DnDDeleteTile*)header;
       delete_tile (this, msg->player_uuid, msg->tile_uuid);
+      break;
+    }
+
+    case DND_PING_PONG: {
+      const DnDPingPong* msg = (DnDPingPong*)header;
+      ping_pong (this, msg->player_uuid);
+      break;
+    }
+
+    case DND_PING_PONG_RECORD: {
+      const DnDPingPongRecord* msg = (DnDPingPongRecord*)header;
+      ping_pong_record (this, msg->player_uuid, msg->delay);
       break;
     }
   }

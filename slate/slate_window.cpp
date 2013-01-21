@@ -425,6 +425,18 @@ void SlateWindow::delete_tile (DnDClient* client, Uuid player_uuid,
   _board->delete_tile (tile_uuid);
 }
 
+void SlateWindow::ping_pong (DnDClient* client, Uuid uuid)
+{
+  if (uuid == _player_list->get_my_uuid ())
+    _client->ping_pong (uuid);
+}
+
+void SlateWindow::ping_pong_record (DnDClient* client, Uuid uuid,
+                                    quint32 delay)
+{
+  qDebug () << "PingPongRecord " << uuid << ' ' << delay;
+}
+
 void SlateWindow::player_activated (Uuid uuid)
 {
   QString n_entry = _player_list->get_player_name (uuid);
@@ -503,6 +515,10 @@ bool SlateWindow::connect_client (const QString& host, quint16 port,
                        quint16, quint16)));
   connect (_client, SIGNAL (delete_tile (DnDClient*, Uuid, Uuid)),
            this, SLOT (delete_tile (DnDClient*, Uuid, Uuid)));
+  connect (_client, SIGNAL (ping_pong (DnDClient*, Uuid)),
+           this, SLOT (ping_pong (DnDClient*, Uuid)));
+  connect (_client, SIGNAL (ping_pong_record (DnDClient*, Uuid, quint32)),
+           this, SLOT (ping_pong_record (DnDClient*, Uuid, quint32)));
   connect (_client, SIGNAL (connected ()),
            this, SLOT (server_connected ()));
   connect (_client, SIGNAL (disconnected ()),
