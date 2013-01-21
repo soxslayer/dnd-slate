@@ -142,15 +142,15 @@ void DnDClient::user_del (Uuid uuid)
   send_message (&msg, sizeof (msg));
 }
 
-void DnDClient::chat_message (Uuid src, Uuid dst, const QString& message,
-                              int flags)
+void DnDClient::chat_message (Uuid src_uuid, Uuid dst_uuid,
+                              const QString& message, int flags)
 {
   quint64 msg_size = sizeof (DnDChatMessage) - 1 + message.size ();
   DnDChatMessage* msg = (DnDChatMessage*)new char[msg_size];
 
   msg->header.type = DND_CHAT_MESSAGE;
-  msg->src_uuid = src;
-  msg->dst_uuid = dst;
+  msg->src_uuid = src_uuid;
+  msg->dst_uuid = dst_uuid;
   QByteArray ascii_msg = message.toAscii ();
   memcpy (&msg->message, ascii_msg.data (), ascii_msg.size ());
   msg->flags = flags;
@@ -211,14 +211,14 @@ void DnDClient::image_end (quint32 id)
   send_message (&msg, sizeof (msg));
 }
 
-void DnDClient::add_tile (Uuid uuid, quint8 type, quint16 x, quint16 y,
+void DnDClient::add_tile (Uuid tile_uuid, quint8 type, quint16 x, quint16 y,
                           quint16 w, quint16 h, const QString& text)
 {
   quint64 msg_size = sizeof (DnDAddTile) -1 + text.size ();
   DnDAddTile* msg = (DnDAddTile*)new char[msg_size];
 
   msg->header.type = DND_ADD_TILE;
-  msg->uuid = uuid;
+  msg->tile_uuid = tile_uuid;
   msg->type = type;
   msg->x = x;
   msg->y = y;
@@ -232,13 +232,11 @@ void DnDClient::add_tile (Uuid uuid, quint8 type, quint16 x, quint16 y,
   delete [] msg;
 }
 
-void DnDClient::move_tile (Uuid player_uuid, Uuid tile_uuid,
-                           quint16 x, quint16 y)
+void DnDClient::move_tile (Uuid tile_uuid, quint16 x, quint16 y)
 {
   DnDMoveTile msg;
 
   msg.header.type = DND_MOVE_TILE;
-  msg.player_uuid = player_uuid;
   msg.tile_uuid = tile_uuid;
   msg.x = x;
   msg.y = y;
@@ -246,23 +244,21 @@ void DnDClient::move_tile (Uuid player_uuid, Uuid tile_uuid,
   send_message (&msg, sizeof (msg));
 }
 
-void DnDClient::delete_tile (Uuid player_uuid, Uuid tile_uuid)
+void DnDClient::delete_tile (Uuid tile_uuid)
 {
   DnDDeleteTile msg;
 
   msg.header.type = DND_DELETE_TILE;
-  msg.player_uuid = player_uuid;
   msg.tile_uuid = tile_uuid;
 
   send_message (&msg, sizeof (msg));
 }
 
-void DnDClient::ping_pong (Uuid player_uuid)
+void DnDClient::ping_pong ()
 {
   DnDPingPong msg;
 
   msg.header.type = DND_PING_PONG;
-  msg.player_uuid = player_uuid;
 
   send_message (&msg, sizeof (msg));
 }
@@ -443,26 +439,26 @@ void DnDClient::handle_message (const DnDMessageHeader* header, quint64 size)
       const DnDAddTile* msg = (DnDAddTile*)header;
       QString text = QString::fromAscii (msg->text,
         size - offsetof (DnDAddTile, text));
-      add_tile (this, msg->uuid, msg->type, msg->x, msg->y, msg->w, msg->h,
-                text);
+      add_tile (this, msg->tile_uuid, msg->type, msg->x, msg->y, msg->w,
+                msg->h, text);
       break;
     }
 
     case DND_MOVE_TILE: {
       const DnDMoveTile* msg = (DnDMoveTile*)header;
-      move_tile (this, msg->player_uuid, msg->tile_uuid, msg->x, msg->y);
+      move_tile (this, msg->tile_uuid, msg->x, msg->y);
       break;
     }
 
     case DND_DELETE_TILE: {
       const DnDDeleteTile* msg = (DnDDeleteTile*)header;
-      delete_tile (this, msg->player_uuid, msg->tile_uuid);
+      delete_tile (this, msg->tile_uuid);
       break;
     }
 
     case DND_PING_PONG: {
       const DnDPingPong* msg = (DnDPingPong*)header;
-      ping_pong (this, msg->player_uuid);
+      ping_pong (this);
       break;
     }
 

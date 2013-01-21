@@ -32,6 +32,7 @@
 #include "dnd_client.h"
 #include "dnd_messages.h"
 #include "tile.h"
+#include "util.h"
 
 #define PING_PONG_INTERVAL 1000
 
@@ -49,11 +50,7 @@ DnDServer::DnDServer (quint16 port)
 
 DnDServer::~DnDServer ()
 {
-  QMap<Uuid, ClientId*>::iterator beg = _client_map.begin ();
-  QMap<Uuid, ClientId*>::iterator end = _client_map.end ();
-
-  for (; beg != end; ++beg)
-    delete *beg;
+  for_all(_clients, [] (ClientRecord* r) { delete r->client; delete r; });
 }
 
 void DnDServer::incomingConnection (int socketDescriptor)
@@ -74,44 +71,34 @@ void DnDServer::incomingConnection (int socketDescriptor)
                            quint16, quint16, quint16, const QString&)),
            this, SLOT (client_add_tile (DnDClient*, Uuid, quint8, quint16,
                        quint16, quint16, quint16, const QString&)));
-  connect (client, SIGNAL (move_tile (DnDClient*, Uuid, Uuid, quint16,
+  connect (client, SIGNAL (move_tile (DnDClient*, Uuid, quint16,
                            quint16)),
-           this, SLOT (client_move_tile (DnDClient*, Uuid, Uuid,
+           this, SLOT (client_move_tile (DnDClient*, Uuid,
                        quint16, quint16)));
-  connect (client, SIGNAL (delete_tile (DnDClient*, Uuid, Uuid)),
-           this, SLOT (client_delete_tile (DnDClient*, Uuid, Uuid)));
+  connect (client, SIGNAL (delete_tile (DnDClient*, Uuid)),
+           this, SLOT (client_delete_tile (DnDClient*, Uuid)));
   connect (client, SIGNAL (disconnected (DnDClient*)),
            this, SLOT (client_disconnected (DnDClient*)));
-  connect (client, SIGNAL (ping_pong (DnDClient*, Uuid)),
-           this, SLOT (client_ping_pong (DnDClient*, Uuid)));
+  connect (client, SIGNAL (ping_pong (DnDClient*)),
+           this, SLOT (client_ping_pong (DnDClient*)));
+
+  ClientRecord* rec = new ClientRecord;
+  rec->client = client;
+
+  if (_clients.isEmpty ())
+    rec->dm = true;
+
+  _clients.insert (client, rec);
 }
 
 void DnDServer::client_disconnected (DnDClient* client)
 {
-  QMap<Uuid, ClientId*>::iterator beg = _client_map.begin ();
-  QMap<Uuid, ClientId*>::iterator end = _client_map.end ();
-  Uuid rm_uuid = 0;
-  QMap<Uuid, ClientId*>::iterator rm;
+  ClientRecord* dc_client = _clients[client];
 
-  for (; beg != end; ++beg) {
-    if (client == (*beg)->client) {
-      rm = beg;
-      rm_uuid = beg.key ();
-      break;
-    }
-  }
+  _clients.erase (_clients.find (client));
 
-  if (beg == end) {
-    qDebug () << "Not found";
-    return;
-  }
-
-  _client_map.erase (rm);
-
-  beg = _client_map.begin ();
-
-  for (; beg != end; ++beg)
-    (*beg)->client->user_del (rm_uuid);
+  for_all (_clients, [] (ClientRecord* r, Uuid u) { r->client->user_del (u); },
+           dc_client->uuid);
 }
 
 void DnDServer::client_comm_proto_req (DnDClient* client)
@@ -121,127 +108,136 @@ void DnDServer::client_comm_proto_req (DnDClient* client)
 
 void DnDServer::client_user_add_req (DnDClient* client, const QString& name)
 {
-  Uuid uuid = _uuid_manager.get_uuid ();
-  QString c_name = name;
+  ClientRecord* record = _clients[client];
+  record->uuid = _uuid_manager.get_uuid ();
+  record->name = name;
+  record->active = true;
 
-  if (_client_map.isEmpty ()) {
-    _dm_client = client;
-    _dm_uuid = uuid;
-    QString dm_prefix = "[DM] ";
-    c_name.prepend (dm_prefix);
+  if (record->dm) {
+    record->name.prepend ("[DM]_");
+    _dm_uuid = record->uuid;
   }
 
-  c_name.replace (' ', '_');
+  record->name.replace (' ', '_');
 
-  client->user_add_resp (uuid, c_name);
-  send_map (client);
+  record->client->user_add_resp (record->uuid, record->name);
 
-  QMap<Uuid, ClientId*>::iterator c_beg = _client_map.begin ();
-  QMap<Uuid, ClientId*>::iterator c_end = _client_map.end ();
+  for_all (_clients,
+           [&] (ClientRecord* r)
+           {
+             if (!r->active || r->client == record->client)
+               return;
 
-  for (; c_beg != c_end; ++c_beg) {
-    (*c_beg)->client->user_add_resp (uuid, c_name);
-    client->user_add_resp (c_beg.key (), (*c_beg)->name);
-  }
+             r->client->user_add_resp (record->uuid, record->name);
+             record->client->user_add_resp (r->uuid, r->name);
+           });
 
-  ClientId* cid = new ClientId (c_name, client);
+  send_map (record->client);
 
-  cid->ping_pong.start ();
-  client->ping_pong (uuid);
+  record->ping_pong.start ();
+  record->client->ping_pong ();
 
-  _client_map.insert (uuid, cid);
-
-  QMap<Uuid, Tile*>::iterator t_beg = _tile_map.begin ();
-  QMap<Uuid, Tile*>::iterator t_end = _tile_map.end ();
-
-  for (; t_beg != t_end; ++t_beg) {
-    Tile* tile = *t_beg;
-    client->add_tile (tile->get_uuid (), tile->get_type (), tile->get_x (),
-                      tile->get_y (), tile->get_width (),
-                      tile->get_height (), tile->get_text ());
-  }
+  for_all (_tiles,
+           [&] (Tile* t)
+           {
+             record->client->add_tile (t->get_uuid (), t->get_type (),
+                                       t->get_x (), t->get_y (),
+                                       t->get_width (), t->get_height (),
+                                       t->get_text ());
+           });
 }
 
-void DnDServer::client_chat_message (DnDClient* client, Uuid src, Uuid dst,
-                                     const QString& message, int flags)
+void DnDServer::client_chat_message (DnDClient* client, Uuid src_uuid,
+                                     Uuid dst_uuid, const QString& message,
+                                     int flags)
 {
-  /* Eliminates unused parameter warnings */
-  (void)client;
+  ClientRecord* record = _clients[client];
 
-  QMap<Uuid, ClientId*>::iterator beg = _client_map.begin ();
-  QMap<Uuid, ClientId*>::iterator end = _client_map.end ();
+  for_all (_clients,
+           [&] (ClientRecord* r)
+           {
+             if (!r->active)
+               return;
 
-  for (; beg != end; ++beg) {
-    if (flags & CHAT_BROADCAST || src == beg.key () || dst == beg.key ())
-      (*beg)->client->chat_message (src, dst, message, flags);
-  }
+             if (flags & CHAT_BROADCAST || record->uuid == r->uuid
+                 || dst_uuid == r->uuid)
+               r->client->chat_message (record->uuid, dst_uuid, message,
+               flags);
+           });
 }
 
 void DnDServer::client_load_image (DnDClient* client, const QString& file_name)
 {
-  (void)client;
+  ClientRecord* record = _clients[client];
 
-  if (client != _dm_client) {
-    client->server_message ("Only the DM can load a map", MESSAGE_ERROR);
+  if (!record->dm) {
+    record->client->server_message ("Only the DM can load a map",
+                                    MESSAGE_ERROR);
     return;
   }
 
   QFile image_file (file_name);
   if (!image_file.open (QIODevice::ReadOnly)) {
-    client->server_message ("Cannot open file", MESSAGE_ERROR);
+    record->client->server_message ("Cannot open file", MESSAGE_ERROR);
     return;
   }
 
   _map_data = image_file.readAll ();
 
-  QMap<Uuid, ClientId*>::iterator beg = _client_map.begin ();
-  QMap<Uuid, ClientId*>::iterator end = _client_map.end ();
+  for_all (_clients,
+           [&] (ClientRecord* r)
+           {
+             if (!r->active)
+               return;
 
-  for (; beg != end; ++beg)
-    send_map ((*beg)->client);
+             send_map (r->client);
+           });
 }
 
-void DnDServer::client_add_tile (DnDClient* client, Uuid uuid, quint8 type,
-                                 quint16 x, quint16 y, quint16 w, quint16 h,
-                                 const QString& text)
+void DnDServer::client_add_tile (DnDClient* client, Uuid tile_uuid,
+                                 quint8 type, quint16 x, quint16 y, quint16 w,
+                                 quint16 h, const QString& text)
 {
-  (void)client;
+  ClientRecord* record = _clients[client];
 
   Tile* tile = new Tile (_uuid_manager.get_uuid (), text,
                          static_cast<Tile::TileType> (type), x, y, w, h,
                          this);
 
-  if (uuid != _dm_uuid)
-    tile->add_perm (uuid, Tile::PERM_ALL);
+  if (!record->dm)
+    tile->add_perm (record->uuid, Tile::PERM_ALL);
 
   tile->add_perm (_dm_uuid, Tile::PERM_ALL);
 
-  QMap<Uuid, ClientId*>::iterator beg = _client_map.begin ();
-  QMap<Uuid, ClientId*>::iterator end = _client_map.end ();
+  for_all (_clients,
+           [&] (ClientRecord* r)
+           {
+             if (!r->active)
+               return;
 
-  for (; beg != end; ++beg) {
-    (*beg)->client->add_tile (tile->get_uuid (), tile->get_type (),
-                              tile->get_x (), tile->get_y (),
-                              tile->get_width (), tile->get_height (),
-                              tile->get_text ());
-  }
+             r->client->add_tile (tile->get_uuid (), tile->get_type (),
+                                  tile->get_x (), tile->get_y (),
+                                  tile->get_width (), tile->get_height (),
+                                  tile->get_text ());
+           });
 
-  _tile_map.insert (tile->get_uuid (), tile);
+  _tiles.insert (tile->get_uuid (), tile);
 }
 
-void DnDServer::client_move_tile (DnDClient* client, Uuid player_uuid,
-                                  Uuid tile_uuid, quint16 x, quint16 y)
+void DnDServer::client_move_tile (DnDClient* client, Uuid tile_uuid, quint16 x,
+                                  quint16 y)
 {
-  QMap<Uuid, Tile*>::iterator tile_iter = _tile_map.find (tile_uuid);
+  ClientRecord* record = _clients[client];
+  TileMap::iterator tile_iter = _tiles.find (tile_uuid);
 
-  if (tile_iter == _tile_map.end ()) {
+  if (tile_iter == _tiles.end ()) {
     client->server_message ("Invalid tile UUID", MESSAGE_ERROR);
     return;
   }
 
   Tile* tile = *tile_iter;
 
-  if (!tile->get_perm (player_uuid, Tile::PERM_MOVE)) {
+  if (!tile->get_perm (record->uuid, Tile::PERM_MOVE)) {
     client->server_message ("Move permission not granted", MESSAGE_ERROR);
     return;
   }
@@ -249,69 +245,76 @@ void DnDServer::client_move_tile (DnDClient* client, Uuid player_uuid,
   tile->set_x (x);
   tile->set_y (y);
 
-  QMap<Uuid, ClientId*>::iterator beg = _client_map.begin ();
-  QMap<Uuid, ClientId*>::iterator end = _client_map.end ();
+  for_all (_clients,
+           [&] (ClientRecord* r)
+           {
+             if (!r->active)
+               return;
 
-  for (; beg != end; ++beg) {
-    (*beg)->client->move_tile (player_uuid, tile->get_uuid (), tile->get_x (),
-                               tile->get_y ());
-  }
+             r->client->move_tile (tile->get_uuid (), tile->get_x (),
+                                   tile->get_y ());
+           });
 }
 
-void DnDServer::client_delete_tile (DnDClient* client, Uuid player_uuid,
-                                    Uuid tile_uuid)
+void DnDServer::client_delete_tile (DnDClient* client, Uuid tile_uuid)
 {
-  QMap<Uuid, Tile*>::iterator tile_iter = _tile_map.find (tile_uuid);
+  ClientRecord* record = _clients[client];
+  TileMap::iterator tile_iter = _tiles.find (tile_uuid);
 
-  if (tile_iter == _tile_map.end ()) {
+  if (tile_iter == _tiles.end ()) {
     client->server_message ("Invalid tile UUID", MESSAGE_ERROR);
     return;
   }
 
   Tile* tile = *tile_iter;
 
-  if (!tile->get_perm (player_uuid, Tile::PERM_MOVE)) {
+  if (!tile->get_perm (record->uuid, Tile::PERM_MOVE)) {
     client->server_message ("Move permission not granted", MESSAGE_ERROR);
     return;
   }
 
-  QMap<Uuid, ClientId*>::iterator beg = _client_map.begin ();
-  QMap<Uuid, ClientId*>::iterator end = _client_map.end ();
+  for_all (_clients,
+           [&] (ClientRecord* r)
+           {
+             if (!r->active)
+               return;
 
-  for (; beg != end; ++beg)
-    (*beg)->client->delete_tile (player_uuid, tile_uuid);
+             r->client->delete_tile (tile_uuid);
+           });
 
-  _tile_map.remove (tile_uuid);
+  _tiles.remove (tile_uuid);
 
   delete tile;
 }
 
-void DnDServer::client_ping_pong (DnDClient* client, Uuid player_uuid)
+void DnDServer::client_ping_pong (DnDClient* client)
 {
-  ClientId* cid = _client_map[player_uuid];
-  int delay = cid->ping_pong.elapsed ();
+  ClientRecord* record = _clients[client];
+  int delay = record->ping_pong.elapsed ();
 
-  cid->ping_pong.setHMS (99, 99, 99);
+  record->ping_pong.setHMS (99, 99, 99);
 
-  QMap<Uuid, ClientId*>::iterator beg = _client_map.begin ();
-  QMap<Uuid, ClientId*>::iterator end = _client_map.end ();
+  for_all (_clients,
+           [&] (ClientRecord* r)
+           {
+             if (!r->active)
+               return;
 
-  for (; beg != end; ++beg)
-    (*beg)->client->ping_pong_record (player_uuid, delay);
+             r->client->ping_pong_record (record->uuid, delay);
+           });
 }
 
 void DnDServer::ping_pong_timeout ()
 {
-  QMap<Uuid, ClientId*>::iterator beg = _client_map.begin ();
-  QMap<Uuid, ClientId*>::iterator end = _client_map.end ();
+  for_all (_clients,
+           [] (ClientRecord* r)
+           {
+             if (!r->active || r->ping_pong.isValid ())
+               return;
 
-  for (; beg != end; ++beg) {
-    if ((*beg)->ping_pong.isValid ())
-      continue;
-
-    (*beg)->ping_pong.restart ();
-    (*beg)->client->ping_pong (beg.key ());
-  }
+             r->ping_pong.restart ();
+             r->client->ping_pong ();
+           });
 }
 
 void DnDServer::send_map (DnDClient* client)

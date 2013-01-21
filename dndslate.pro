@@ -7,6 +7,8 @@ CONFIG += debug debug_and_release debug_and_release_target warn_on \
 
 PKGCONFIG += lua
 
+QMAKE_CXXFLAGS += -std=c++0x
+
 HEADERS += \
   slate/buffer.h \
   slate/buffer_manager.h \
@@ -29,6 +31,7 @@ HEADERS += \
   slate/slate_window.h \
   slate/tile.h \
   slate/tile_select_dialog.h \
+  slate/util.h \
   slate/uuid.h
 
 SOURCES += \

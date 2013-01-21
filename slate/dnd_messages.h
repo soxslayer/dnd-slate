@@ -146,7 +146,7 @@ struct DnDImageEnd
 struct DnDAddTile
 {
   DnDMessageHeader header;
-  quint32 uuid;
+  quint32 tile_uuid;
   quint8 type;
   quint16 x;
   quint16 y;
@@ -158,7 +158,6 @@ struct DnDAddTile
 struct DnDMoveTile
 {
   DnDMessageHeader header;
-  quint32 player_uuid;
   quint32 tile_uuid;
   quint16 x;
   quint16 y;
@@ -167,14 +166,12 @@ struct DnDMoveTile
 struct DnDDeleteTile
 {
   DnDMessageHeader header;
-  quint32 player_uuid;
   quint32 tile_uuid;
 };
 
 struct DnDPingPong
 {
   DnDMessageHeader header;
-  quint32 player_uuid;
 };
 
 struct DnDPingPongRecord

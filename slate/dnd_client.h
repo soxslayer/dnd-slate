@@ -53,19 +53,18 @@ signals:
   void user_add_req (DnDClient* client, const QString& name);
   void user_add_resp (DnDClient* client, Uuid uuid, const QString& name);
   void user_del (DnDClient* client, Uuid uuid);
-  void chat_message (DnDClient* client, Uuid src, Uuid dst,
+  void chat_message (DnDClient* client, Uuid src_uuid, Uuid dst_uuid,
                      const QString& message, int flags);
   void load_image (DnDClient* client, const QString& file_name);
   void image_begin (DnDClient* client, quint32 total_size, quint32 id);
   void image_data (DnDClient* client, quint32 id, quint32 sequence,
                    const uchar* data, quint64 size);
   void image_end (DnDClient* client, quint32 id);
-  void add_tile (DnDClient* client, Uuid uuid, quint8 type, quint16 x,
+  void add_tile (DnDClient* client, Uuid tile_uuid, quint8 type, quint16 x,
                  quint16 y, quint16 w, quint16 h, const QString& text);
-  void move_tile (DnDClient* client, Uuid player_uuid, Uuid tile_uuid,
-                  quint16 x, quint16 y);
-  void delete_tile (DnDClient* client, Uuid player_uuid, Uuid tile_uuid);
-  void ping_pong (DnDClient* client, Uuid player_uuid);
+  void move_tile (DnDClient* client, Uuid tile_uuid, quint16 x, quint16 y);
+  void delete_tile (DnDClient* client, Uuid tile_uuid);
+  void ping_pong (DnDClient* client);
   void ping_pong_record (DnDClient* client, Uuid player_uuid, quint32 delay);
 
 public slots:
@@ -75,18 +74,18 @@ public slots:
   void user_add_req (const QString& name);
   void user_add_resp (Uuid uuid, const QString& name);
   void user_del (Uuid uuid);
-  void chat_message (Uuid src, Uuid dst, const QString& msg, int flags);
+  void chat_message (Uuid src_uuid, Uuid dst_uuid, const QString& msg,
+                     int flags);
   void load_image (const QString& file_name);
   void image_begin (quint32 total_size, quint32 id);
   void image_data (quint32 id, quint32 sequence, const uchar* data,
                    quint64 size);
   void image_end (quint32 id);
-  void add_tile (Uuid uuid, quint8 type, quint16 x, quint16 y, quint16 w,
+  void add_tile (Uuid tile_uuid, quint8 type, quint16 x, quint16 y, quint16 w,
                  quint16 h, const QString& text);
-  void move_tile (Uuid player_uuid, Uuid tile_uuid,
-                  quint16 x, quint16 y);
-  void delete_tile (Uuid player_uuid, Uuid tile_uuid);
-  void ping_pong (Uuid player_uuid);
+  void move_tile (Uuid tile_uuid, quint16 x, quint16 y);
+  void delete_tile (Uuid tile_uuid);
+  void ping_pong ();
   void ping_pong_record (Uuid player_uuid, quint32 delay);
 
 private slots:

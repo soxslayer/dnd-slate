@@ -160,8 +160,6 @@ bool SlateWindow::disconnect_command (const CommandParamList& params)
 
 void SlateWindow::open_triggered (bool checked)
 {
-  (void)checked;
-
   QFileDialog f_diag (this);
   f_diag.setFileMode (QFileDialog::ExistingFile);
 
@@ -175,15 +173,11 @@ void SlateWindow::open_triggered (bool checked)
 
 void SlateWindow::quit_triggered (bool checked)
 {
-  (void)checked;
-
   QCoreApplication::quit ();
 }
 
 void SlateWindow::connect_triggered (bool checked)
 {
-  (void)checked;
-
   ConnectDialog diag (this);
 
   if (diag.exec ()) {
@@ -194,16 +188,12 @@ void SlateWindow::connect_triggered (bool checked)
 
 void SlateWindow::disconnect_triggered (bool checked)
 {
-  (void)checked;
-
   disconnect_client ();
   delete _client;
 }
 
 void SlateWindow::add_tile_triggered (bool checked)
 {
-  (void)checked;
-
   TileSelectDialog diag (this);
 
   if (diag.exec ()) {
@@ -224,12 +214,10 @@ void SlateWindow::add_tile_triggered (bool checked)
 
 void SlateWindow::delete_tile_triggered (bool checked)
 {
-  (void)checked;
-
   Uuid selected_uuid = _board->get_selected_uuid ();
 
   if (selected_uuid != UuidManager::UUID_INVALID)
-    _client->delete_tile (_player_list->get_my_uuid (), selected_uuid);
+    _client->delete_tile (selected_uuid);
 }
 
 void SlateWindow::server_connected ()
@@ -261,8 +249,6 @@ void SlateWindow::send_message (const QString& who, const QString& message)
 void SlateWindow::comm_proto_resp (DnDClient* client, quint16 major,
                                    quint16 minor)
 {
-  (void)client;
-
   if (major != COMM_PROTO_MAJOR || minor != COMM_PROTO_MINOR) {
     QMessageBox::critical (this, "Error",
       "Incompatible communication protocol with server");
@@ -286,8 +272,6 @@ void SlateWindow::comm_proto_resp (DnDClient* client, quint16 major,
 void SlateWindow::server_message (DnDClient* client, const QString& msg,
                                   int flags)
 {
-  (void)client;
-
   if (flags & MESSAGE_ERROR)
     QMessageBox::critical (this, "Error", msg);
   else if (flags & MESSAGE_WARN)
@@ -299,8 +283,6 @@ void SlateWindow::server_message (DnDClient* client, const QString& msg,
 void SlateWindow::user_add_resp (DnDClient* client, Uuid uuid,
                                  const QString& name)
 {
-  (void)client;
-
   QString status = name;
   status += " connected";
 
@@ -310,8 +292,6 @@ void SlateWindow::user_add_resp (DnDClient* client, Uuid uuid,
 
 void SlateWindow::user_del (DnDClient* client, Uuid uuid)
 {
-  (void)client;
-
   QString status = _player_list->get_player_name (uuid);
   status += " disconnected";
 
@@ -319,33 +299,30 @@ void SlateWindow::user_del (DnDClient* client, Uuid uuid)
   _chat_widget->insert_status (status);
 }
 
-void SlateWindow::chat_message (DnDClient* client, Uuid src, Uuid dst,
-                                const QString& message, int flags)
+void SlateWindow::chat_message (DnDClient* client, Uuid src_uuid,
+                                Uuid dst_uuid, const QString& message,
+                                int flags)
 {
-  (void)client;
-
   int chat_widget_flags = 0;
   QString who;
 
   if (!(flags & CHAT_BROADCAST))
     chat_widget_flags |= ChatWidget::ChatWhisper;
 
-  if (src == _player_list->get_my_uuid ())
+  if (src_uuid == _player_list->get_my_uuid ())
     chat_widget_flags |= ChatWidget::ChatFromMe;
 
   if (chat_widget_flags & ChatWidget::ChatWhisper
       && chat_widget_flags & ChatWidget::ChatFromMe)
-    who = _player_list->get_player_name (dst);
+    who = _player_list->get_player_name (dst_uuid);
   else
-    who = _player_list->get_player_name (src);
+    who = _player_list->get_player_name (src_uuid);
 
   _chat_widget->insert_message (message, who, chat_widget_flags);
 }
 
 void SlateWindow::map_begin (DnDClient* client, quint32 size, quint32 id)
 {
-  (void)client;
-
   _map_transfer_id = id;
   _map_buff = new QByteArray (size, 0);
 }
@@ -353,8 +330,6 @@ void SlateWindow::map_begin (DnDClient* client, quint32 size, quint32 id)
 void SlateWindow::map_data (DnDClient* client, quint32 id, quint32 sequence,
                             const uchar* data, quint64 size)
 {
-  (void)client;
-
   if (id != _map_transfer_id)
     return;
 
@@ -363,8 +338,6 @@ void SlateWindow::map_data (DnDClient* client, quint32 id, quint32 sequence,
 
 void SlateWindow::map_end (DnDClient* client, quint32 id)
 {
-  (void)client;
-
   if (id != _map_transfer_id)
     return;
 
@@ -375,17 +348,15 @@ void SlateWindow::map_end (DnDClient* client, quint32 id)
   delete _map_buff;
 }
 
-void SlateWindow::add_tile (DnDClient* client, Uuid uuid, quint8 type,
+void SlateWindow::add_tile (DnDClient* client, Uuid tile_uuid, quint8 type,
                             quint16 x, quint16 y, quint16 w, quint16 h,
                             const QString& text)
 {
-  (void)client;
-
   GameTile* tile;
 
   switch (type) {
     case Tile::TILE_CUSTOM: {
-      tile = new CustomTile (uuid, w, h, text);
+      tile = new CustomTile (tile_uuid, w, h, text);
 
       break;
     }
@@ -395,7 +366,7 @@ void SlateWindow::add_tile (DnDClient* client, Uuid uuid, quint8 type,
       path.prepend ("image:");
       QDir tile_path (path);
 
-      tile = new ImageTile (uuid, tile_path.absolutePath ());
+      tile = new ImageTile (tile_uuid, tile_path.absolutePath ());
 
       break;
     }
@@ -406,29 +377,20 @@ void SlateWindow::add_tile (DnDClient* client, Uuid uuid, quint8 type,
   tile->set_y (y);
 }
 
-void SlateWindow::move_tile (DnDClient* client, Uuid player_uuid,
-                             Uuid tile_uuid, quint16 x, quint16 y)
+void SlateWindow::move_tile (DnDClient* client, Uuid tile_uuid,
+                             quint16 x, quint16 y)
 {
-  (void)client;
-  (void)player_uuid;
-
   _board->move_tile (tile_uuid, x, y);
 }
 
-void SlateWindow::delete_tile (DnDClient* client, Uuid player_uuid,
-                               Uuid tile_uuid)
+void SlateWindow::delete_tile (DnDClient* client, Uuid tile_uuid)
 {
-  (void)client;
-  (void)player_uuid;
-
-  qDebug () << "Delete tile";
   _board->delete_tile (tile_uuid);
 }
 
-void SlateWindow::ping_pong (DnDClient* client, Uuid uuid)
+void SlateWindow::ping_pong (DnDClient* client)
 {
-  if (uuid == _player_list->get_my_uuid ())
-    _client->ping_pong (uuid);
+  _client->ping_pong ();
 }
 
 void SlateWindow::ping_pong_record (DnDClient* client, Uuid uuid,
@@ -445,9 +407,9 @@ void SlateWindow::player_activated (Uuid uuid)
   _chat_widget->set_entry (n_entry);
 }
 
-void SlateWindow::tile_moved (Uuid uuid, int x, int y)
+void SlateWindow::tile_moved (Uuid tile_uuid, int x, int y)
 {
-  _client->move_tile (_player_list->get_my_uuid (), uuid, x, y);
+  _client->move_tile (tile_uuid, x, y);
 }
 
 void SlateWindow::disconnect_client ()
@@ -509,14 +471,12 @@ bool SlateWindow::connect_client (const QString& host, quint16 port,
                             quint16, quint16, quint16, const QString&)),
            this, SLOT (add_tile (DnDClient*, Uuid, quint8, quint16,
                        quint16, quint16, quint16, const QString&)));
-  connect (_client, SIGNAL (move_tile (DnDClient*, Uuid, Uuid,
-                            quint16, quint16)),
-           this, SLOT (move_tile (DnDClient*, Uuid, Uuid,
-                       quint16, quint16)));
-  connect (_client, SIGNAL (delete_tile (DnDClient*, Uuid, Uuid)),
-           this, SLOT (delete_tile (DnDClient*, Uuid, Uuid)));
-  connect (_client, SIGNAL (ping_pong (DnDClient*, Uuid)),
-           this, SLOT (ping_pong (DnDClient*, Uuid)));
+  connect (_client, SIGNAL (move_tile (DnDClient*, Uuid, quint16, quint16)),
+           this, SLOT (move_tile (DnDClient*, Uuid, quint16, quint16)));
+  connect (_client, SIGNAL (delete_tile (DnDClient*, Uuid)),
+           this, SLOT (delete_tile (DnDClient*, Uuid)));
+  connect (_client, SIGNAL (ping_pong (DnDClient*)),
+           this, SLOT (ping_pong (DnDClient*)));
   connect (_client, SIGNAL (ping_pong_record (DnDClient*, Uuid, quint32)),
            this, SLOT (ping_pong_record (DnDClient*, Uuid, quint32)));
   connect (_client, SIGNAL (connected ()),

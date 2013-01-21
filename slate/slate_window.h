@@ -68,21 +68,20 @@ private slots:
   void server_message (DnDClient* client, const QString& msg, int flags);
   void user_add_resp (DnDClient* client, Uuid uuid, const QString& name);
   void user_del (DnDClient* client, Uuid);
-  void chat_message (DnDClient* client, Uuid src, Uuid dst,
+  void chat_message (DnDClient* client, Uuid src_uuid, Uuid dst_uuid,
                      const QString& message, int flags);
   void map_begin (DnDClient* client, quint32 size, quint32 id);
   void map_data (DnDClient* client, quint32 id, quint32 sequence,
                  const uchar* data, quint64 size);
   void map_end (DnDClient* client, quint32 id);
-  void add_tile (DnDClient* client, Uuid uuid, quint8 type, quint16 x,
+  void add_tile (DnDClient* client, Uuid tile_uuid, quint8 type, quint16 x,
                  quint16 y, quint16 w, quint16 h, const QString& text);
-  void move_tile (DnDClient* client, Uuid player_uuid, Uuid tile_uuid,
-                  quint16 x, quint16 y);
-  void delete_tile (DnDClient* client, Uuid player_uuid, Uuid tile_uuid);
-  void ping_pong (DnDClient* client, Uuid uuid);
+  void move_tile (DnDClient* client, Uuid tile_uuid, quint16 x, quint16 y);
+  void delete_tile (DnDClient* client, Uuid tile_uuid);
+  void ping_pong (DnDClient* client);
   void ping_pong_record (DnDClient* client, Uuid uuid, quint32 delay);
   void player_activated (Uuid uuid);
-  void tile_moved (Uuid uuid, int x, int y);
+  void tile_moved (Uuid tile_uuid, int x, int y);
 
 private:
   QAction* _open_action;

@@ -52,35 +52,49 @@ private slots:
   void client_disconnected (DnDClient* client);
   void client_comm_proto_req (DnDClient* client);
   void client_user_add_req (DnDClient* client, const QString& name);
-  void client_chat_message (DnDClient* client, Uuid src, Uuid dst,
+  void client_chat_message (DnDClient* client, Uuid src_uuid, Uuid dst_uuid,
                             const QString& msg, int flags);
   void client_load_image (DnDClient* client, const QString& file_name);
-  void client_add_tile (DnDClient* client, Uuid uuid, quint8 type,
+  void client_add_tile (DnDClient* client, Uuid tile_uuid, quint8 type,
                         quint16 x, quint16 y, quint16 w, quint16 h,
                         const QString& text);
-  void client_move_tile (DnDClient* client, Uuid player_uuid,
-                         Uuid tile_uuid, quint16 x, quint16 y);
-  void client_delete_tile (DnDClient* client, Uuid player_uuid,
-                           Uuid tile_uuid);
-  void client_ping_pong (DnDClient* client, Uuid player_uuid);
+  void client_move_tile (DnDClient* client, Uuid tile_uuid,
+                         quint16 x, quint16 y);
+  void client_delete_tile (DnDClient* client, Uuid tile_uuid);
+  void client_ping_pong (DnDClient* client);
   void ping_pong_timeout ();
 
 private:
-  struct ClientId
+  struct ClientRecord
   {
-    ClientId (const QString& name, DnDClient* client)
-      : name (name), client (client) { }
-    QString name;
+    ClientRecord () : client (0), dm (false), active (false) { }
+
     DnDClient* client;
+    Uuid uuid;
+    QString name;
     QTime ping_pong;
+    bool dm;
+    bool active;
   };
 
+  typedef QMap<DnDClient*, ClientRecord*> ClientMap;
+  typedef QMap<Uuid, Tile*> TileMap;
+
   UuidManager _uuid_manager;
-  Uuid _dm_uuid;
-  DnDClient* _dm_client;
   QByteArray _map_data;
-  QMap<Uuid, ClientId*> _client_map;
-  QMap<Uuid, Tile*> _tile_map;
+  ClientMap _clients;
+  TileMap _tiles;
+  Uuid _dm_uuid;
+
+  template<typename F, typename... ARGS>
+  void for_each_record (F func, ARGS... args)
+  {
+    ClientMap::iterator beg = _clients.begin ();
+    ClientMap::iterator end = _clients.end ();
+
+    for (; beg != end; ++beg)
+      func ((*beg), args...);
+  }
 
   void send_map (DnDClient* client);
 };
