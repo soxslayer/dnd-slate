@@ -9,7 +9,7 @@ class QPixmap;
 class ImageTile : public GameTile
 {
 public:
-  ImageTile (const TilePointer& tile, QGraphicsItem* parent = 0);
+  ImageTile (const TilePointer& tile, QGraphicsItem* parent = nullptr);
 
   virtual int get_width () const { return _width; }
   virtual int get_height () const { return _height; }

@@ -24,13 +24,18 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __COMMAND_HANDLER__
-#define __COMMAND_HANDLER__
+#include "sha_util.h"
+#include "sha1.h"
 
-class CommandHandler
+QString sha1_to_string (SHA1& sha)
 {
-public:
-  virtual ~CommandHandler () = 0;
-};
+  unsigned s_bytes[5];
 
-#endif /* __COMMAND_HANDLER__ */
+  sha.Result (s_bytes);
+
+  return QString ("%1%2%3%4%5").arg (s_bytes[0], 8, 16, QChar ('0'))
+                               .arg (s_bytes[1], 8, 16, QChar ('0'))
+                               .arg (s_bytes[2], 8, 16, QChar ('0'))
+                               .arg (s_bytes[3], 8, 16, QChar ('0'))
+                               .arg (s_bytes[4], 8, 16, QChar ('0'));
+}

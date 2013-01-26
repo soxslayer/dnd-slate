@@ -1,9 +1,9 @@
-/* Copyright (c) 2012, Dustin Mitchell dmmitche <at> gmail <dot> com
+/* Copyright (c) 2013, Dustin Mitchell dmmitche <at> gmail <dot> com
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * - Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
  *
@@ -28,8 +28,8 @@
 
 Tile::Tile (Uuid uuid, const QString& text, TileType type,  int x, int y,
             int w, int h)
- :  _text (text),
-    _uuid (uuid),
+ :  DnDObject (uuid),
+    _text (text),
     _type (type),
     _x (x),
     _y (y),
@@ -40,6 +40,8 @@ Tile::Tile (Uuid uuid, const QString& text, TileType type,  int x, int y,
 
 void Tile::add_perm (Uuid uuid, Permission perm)
 {
+  WLOCK();
+
   auto pos = _perms.find (uuid);
 
   if (pos == _perms.end ()) {
@@ -52,6 +54,8 @@ void Tile::add_perm (Uuid uuid, Permission perm)
 
 void Tile::rm_perm (Uuid uuid, Permission perm)
 {
+  WLOCK();
+
   auto pos = _perms.find (uuid);
 
   if (pos != _perms.end ())
@@ -60,6 +64,8 @@ void Tile::rm_perm (Uuid uuid, Permission perm)
 
 bool Tile::get_perm (Uuid uuid, Permission perm) const
 {
+  RLOCK();
+
   auto pos = _perms.find (uuid);
 
   if (pos == _perms.end ())
@@ -70,6 +76,8 @@ bool Tile::get_perm (Uuid uuid, Permission perm) const
 
 void Tile::move (int x, int y)
 {
+  WLOCK();
+
   _x = x;
   _y = y;
 }

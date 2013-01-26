@@ -3,9 +3,11 @@
 
 #include <QGraphicsView>
 #include <QMap>
+#include <QSize>
 
 #include "uuid.h"
 #include "tile.h"
+#include "image.h"
 
 class QWidget;
 class QPainter;
@@ -16,15 +18,14 @@ class GameTile;
 
 class GameBoard : public QGraphicsView
 {
-  Q_OBJECT;
+  Q_OBJECT
 
 public:
   enum { TILE_WIDTH = 32, TILE_HEIGHT = 32 };
 
-  GameBoard (QWidget* parent = 0);
-  ~GameBoard ();
+  GameBoard (QWidget* parent = nullptr);
 
-  void set_map (QImage* image);
+  void set_map (const ImagePointer& image);
   void clear_map ();
   TilePointer get_selected () const;
 
@@ -40,9 +41,13 @@ protected:
   virtual void drawBackground (QPainter* painter, const QRectF& rect);
   virtual void mousePressEvent (QMouseEvent* event);
 
+private slots:
+  void map_changed ();
+
 private:
   QGraphicsScene* _scene;
-  QImage* _map;
+  ImagePointer _map;
+  QSize _map_size;
   GameTile* _selected_item;
   QMap<Uuid, GameTile*> _tile_map;
   int _width;

@@ -8,8 +8,8 @@ class RestrictedFileDialog : public QFileDialog
 {
   Q_OBJECT;
 
-public: 
-  RestrictedFileDialog (const QString& root, QWidget* parent = 0);
+public:
+  RestrictedFileDialog (const QString& root, QWidget* parent = nullptr);
 
   QString get_selected_file ();
   QString get_selected_file_restricted ();

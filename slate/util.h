@@ -1,9 +1,9 @@
-/* Copyright (c) 2012, Dustin Mitchell dmmitche <at> gmail <dot> com
+/* Copyright (c) 2013, Dustin Mitchell dmmitche <at> gmail <dot> com
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * - Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
  *
@@ -36,5 +36,7 @@ void for_all (I& i, F f, ARGS... a)
   for (; b != b_end; ++b)
     f (*b, a...);
 }
+
+void register_meta_types ();
 
 #endif /* __UTIL__ */

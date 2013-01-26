@@ -1,9 +1,9 @@
-/* Copyright (c) 2012, Dustin Mitchell dmmitche <at> gmail <dot> com
+/* Copyright (c) 2013, Dustin Mitchell dmmitche <at> gmail <dot> com
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * - Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
  *
@@ -27,32 +27,24 @@
 #include <QApplication>
 #include <QProcessEnvironment>
 #include <QMessageBox>
-#include <QDir>
 
 #include "slate_window.h"
 #include "command_manager.h"
 #include "lua_bindings.h"
+#include "image_database.h"
+#include "util.h"
 
 int main (int argc, char** argv)
 {
   QApplication app (argc, argv);
   SlateWindow window;
 
+  register_meta_types ();
+
   CommandManager::init ();
 
-  if (QProcessEnvironment::systemEnvironment ().contains ("DND_SLATE_IMAGES"))
-    QDir::addSearchPath ("image",
-      QProcessEnvironment::systemEnvironment ().value ("DND_SLATE_IMAGES"));
-  else
-    QDir::addSearchPath ("image",
-      QCoreApplication::applicationDirPath () + "/images");
-
-  QDir images_test ("image:.");
-  if (!images_test.exists ()) {
-    QMessageBox::critical (0, "Error", "Cannot find image directory. "
-                     "Try setting DND_SLATE_IMAGES in your environment.");
-    return 1;
-  }
+  ImageDatabase::init ();
+  ImageDatabase::get_instance ().set_autoflush ();
 
   window.show ();
 

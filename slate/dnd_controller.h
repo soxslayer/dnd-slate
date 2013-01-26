@@ -1,9 +1,9 @@
-/* Copyright (c) 2012, Dustin Mitchell dmmitche <at> gmail <dot> com
+/* Copyright (c) 2013, Dustin Mitchell dmmitche <at> gmail <dot> com
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * - Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
  *
@@ -31,19 +31,20 @@
 #include <QString>
 #include <QSharedPointer>
 #include <QMap>
+#include <QQueue>
 
 #include "non_copyable.h"
 #include "uuid.h"
 #include "tile.h"
 #include "command.h"
 #include "player.h"
+#include "image.h"
 
-class QByteArray;
 class DnDServer;
 class DnDClient;
 class CommandParamList;
-
-typedef QSharedPointer<QByteArray> ImageDataPointer;
+class ImageDatabase;
+class ImageId;
 
 class DnDController : public QObject, public NonCopyable
 {
@@ -67,7 +68,7 @@ public slots:
   void disconnect ();
   void chat_message (const PlayerPointer& receiver,
                      const QString& message);
-  void set_map (const QString& file);
+  void load_map (const QString& filename);
   void add_tile (Tile::TileType type, quint16 x, quint16 y, quint16 w,
                  quint16 h, const QString& text);
   void move_tile (const TilePointer& tile, quint16 x, quint16 y);
@@ -82,7 +83,7 @@ signals:
   void chat_message (const PlayerPointer& sender,
                      const PlayerPointer& receiver,
                      const QString& message);
-  void map_updated (const ImageDataPointer& data);
+  void map_changed (const ImagePointer& image);
   void tile_added (const TilePointer& tile);
   void tile_moved (const TilePointer& tile);
   void tile_deleted (const TilePointer& tile);
@@ -94,36 +95,36 @@ private slots:
   void user_del (DnDClient* client, Uuid uuid);
   void chat_message (DnDClient* client, Uuid src_uuid, Uuid dst_uuid,
                      const QString& message, int flags);
-  void image_begin (DnDClient* client, quint32 size, quint32 id);
-  void image_data (DnDClient* client, quint32 id, quint32 seq,
-                   const uchar* data, quint32 size);
-  void image_end (DnDClient* client, quint32 id);
+  void load_map (DnDClient* client, quint16 w, quint16 h,
+                 const ImageId& image_id);
+  void request_image (DnDClient* client, const ImageId& image_id);
   void add_tile (DnDClient* client, Uuid tile_uuid, quint8 type, quint16 x,
                  quint16 y, quint16 w, quint16 h, const QString& text);
   void move_tile (DnDClient* client, Uuid tile_uuid, quint16 x, quint16 y);
   void delete_tile (DnDClient* client, Uuid tile_uuid);
   void ping_pong (DnDClient* client);
+  void ping_pong_record (DnDClient* client, Uuid player_uuid, quint32 delay);
+  void image_query (DnDClient* client, const ImageId& image_id);
 
 private:
-  typedef QMap<quint32, ImageDataPointer> ImageTransferMap;
   typedef QMap<Uuid, TilePointer> TileMap;
   typedef QMap<Uuid, PlayerPointer> PlayerMap;
 
   DnDServer* _server;
   DnDClient* _client;
   QString _name;
-  ImageTransferMap _image_transfer_map;
   TileMap _tile_map;
   PlayerMap _player_map;
   PlayerPointer _me;
   Command<DnDController> _connect_cmd;
   Command<DnDController> _disconnect_cmd;
-  Command<DnDController> _set_map_cmd;
+  Command<DnDController> _load_map_cmd;
   Command<DnDController> _add_tile_cmd;
+  ImageDatabase& _image_db;
 
   bool connect_cmd (const CommandParamList& params);
   bool disconnect_cmd (const CommandParamList& params);
-  bool set_map_cmd (const CommandParamList& params);
+  bool load_map_cmd (const CommandParamList& params);
   bool add_tile_cmd (const CommandParamList& params);
 };
 

@@ -8,7 +8,7 @@
 class GameTile : public QGraphicsPixmapItem
 {
 public:
-  GameTile (const TilePointer& tile, QGraphicsItem* parent = 0);
+  GameTile (const TilePointer& tile, QGraphicsItem* parent = nullptr);
 
   const TilePointer& get_tile () const { return _tile; }
   void update ();

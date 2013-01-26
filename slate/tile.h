@@ -1,9 +1,9 @@
-/* Copyright (c) 2012, Dustin Mitchell dmmitche <at> gmail <dot> com
+/* Copyright (c) 2013, Dustin Mitchell dmmitche <at> gmail <dot> com
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * - Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
  *
@@ -32,12 +32,13 @@
 #include <QMap>
 #include <QSharedPointer>
 
-#include "uuid.h"
+#include "dnd_object.h"
+#include "serializable.h"
 
 class QPoint;
 class QSize;
 
-class Tile
+class Tile : public DnDObject
 {
 public:
   typedef enum {
@@ -55,23 +56,21 @@ public:
   Tile (Uuid uuid, const QString& text, TileType type,  int x = 0, int y = 0,
         int w = 1, int h = 1);
 
-  Uuid get_uuid () const { return _uuid; }
-  QString get_text () const { return _text; }
-  TileType get_type () const { return _type; }
+  QString get_text () const { RLOCK(); return _text; }
+  TileType get_type () const { RLOCK(); return _type; }
   void add_perm (Uuid uuid, Permission perm);
   void rm_perm (Uuid uuid, Permission perm);
   bool get_perm (Uuid uuid, Permission perm) const;
   void move (int x, int y);
-  int get_x () const { return _x; }
-  int get_y () const { return _y; }
-  int get_width () const { return _width; }
-  void set_width (int w) { _width = w; }
-  int get_height () const { return _height; }
-  void set_height (int h) { _height = h; }
+  int get_x () const { RLOCK(); return _x; }
+  int get_y () const { RLOCK(); return _y; }
+  int get_width () const { RLOCK(); return _width; }
+  void set_width (int w) { WLOCK(); _width = w; }
+  int get_height () const { RLOCK(); return _height; }
+  void set_height (int h) { WLOCK(); _height = h; }
 
 private:
   QString _text;
-  Uuid _uuid;
   TileType _type;
   QMap<Uuid, int> _perms;
   int _x;

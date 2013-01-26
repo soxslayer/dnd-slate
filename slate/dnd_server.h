@@ -1,9 +1,9 @@
-/* Copyright (c) 2012, Dustin Mitchell dmmitche <at> gmail <dot> com
+/* Copyright (c) 2013, Dustin Mitchell dmmitche <at> gmail <dot> com
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * - Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
  *
@@ -29,20 +29,37 @@
 
 #include <QTcpServer>
 #include <QMap>
-#include <QByteArray>
 #include <QTime>
+#include <QHash>
+#include <QMultiHash>
+#include <QSize>
 
 #include "uuid.h"
 #include "player.h"
+#include "image_id.h"
 
 class DnDClient;
 class Tile;
+class ImageRequest;
 
 class DnDServer : public QTcpServer
 {
   Q_OBJECT
 
 public:
+  struct ClientRecord
+  {
+    ClientRecord ()
+      : client (0), active (false), sending_image (false)
+    { }
+
+    DnDClient* client;
+    Player player;
+    QTime ping_pong;
+    bool active;
+    bool sending_image;
+  };
+
   DnDServer (quint16 port);
   ~DnDServer ();
 
@@ -55,7 +72,9 @@ private slots:
   void client_user_add_req (DnDClient* client, const QString& name);
   void client_chat_message (DnDClient* client, Uuid src_uuid, Uuid dst_uuid,
                             const QString& msg, int flags);
-  void client_load_image (DnDClient* client, const QString& file_name);
+  void client_request_image (DnDClient* client, const ImageId& image_id);
+  void client_load_map (DnDClient* client, quint16 w, quint16 h,
+                        const ImageId& image_id);
   void client_add_tile (DnDClient* client, Uuid tile_uuid, quint8 type,
                         quint16 x, quint16 y, quint16 w, quint16 h,
                         const QString& text);
@@ -64,28 +83,18 @@ private slots:
   void client_delete_tile (DnDClient* client, Uuid tile_uuid);
   void client_ping_pong (DnDClient* client);
   void ping_pong_timeout ();
+  void image_transfer_complete (const ImageId& image_id,
+                                const QByteArray& data);
 
 private:
-  struct ClientRecord
-  {
-    ClientRecord () : client (0), active (false) { }
-
-    DnDClient* client;
-    Player player;
-    QTime ping_pong;
-    bool active;
-  };
-
-  typedef QMap<DnDClient*, ClientRecord*> ClientMap;
-  typedef QMap<Uuid, Tile*> TileMap;
-
   UuidManager _uuid_manager;
-  QByteArray _map_data;
-  ClientMap _clients;
-  TileMap _tiles;
+  QMap<DnDClient*, ClientRecord*> _clients;
+  QMap<Uuid, Tile*> _tiles;
   Player* _dm;
-
-  void send_map (DnDClient* client);
+  ImageId _map_id;
+  QSize _map_size;
+  QHash<ImageId, QByteArray> _image_cache;
+  QHash<ImageId, ImageRequest*> _current_transfers;
 };
 
 #endif /* __DND_SERVER__ */

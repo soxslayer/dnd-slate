@@ -39,7 +39,7 @@ CustomTile::CustomTile (const TilePointer& tile, QGraphicsItem* parent)
   QRectF my_bound = boundingRect ();
 
   int c_x, c_y;
-  
+
   c_x = (my_bound.width () - text_bound.width ()) / 2;
   if (c_x < 0)
     c_x = 0;

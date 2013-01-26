@@ -24,80 +24,79 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <cstring>
+#include <QImage>
+#include <QColor>
+#include <QByteArray>
+#include <QString>
 
-#include "buffer.h"
+#include "image.h"
+#include "dnd_client.h"
+#include "image_transfer.h"
+#include "game_board.h"
+#include "image_database.h"
 
-Buffer::Buffer (quint64 size)
+Image::Image (int width, int height, DnDClient* client)
 {
-  _size = size;
-  _offset = 0;
+  _image = new QImage (width * (GameBoard::TILE_WIDTH + 1) + 1,
+                       height * (GameBoard::TILE_HEIGHT + 1) + 1,
+                       QImage::Format_ARGB32);
+  _image->fill (QColor (255, 255, 255));
 
-  _raw_data = new char[size + 8];
-  _data = _raw_data + 4;
+  _transfer = new ImageTransfer (client);
+  connect (_transfer, SIGNAL (complete (const QByteArray&)),
+    SLOT (transfer_complete (const QByteArray&)));
 }
 
-Buffer::~Buffer ()
+Image::Image (const QString& filename)
 {
-  delete [] _raw_data;
+  _image = new QImage ();
+  _image->load (filename);
+
+  _transfer = nullptr;
 }
 
-quint64 Buffer::fill (const void* src, quint64 size)
+Image::~Image ()
 {
-  if (!src)
-    return 0;
+  delete _image;
 
-  quint64 ncopy = size > (_size - _offset) ? (_size - _offset) : size;
-
-  if (!ncopy)
-    return 0;
-
-  memcpy (_data + _offset, src, ncopy);
-
-  _offset += ncopy;
-
-  return ncopy;
+  if (_transfer)
+    delete _transfer;
 }
 
-quint64 Buffer::fill (quint64 size)
+int Image::get_width () const
 {
-  quint64 ncopy = size > (_size - _offset) ? (_size - _offset) : size;
-  _offset += ncopy;
+  RLOCK ();
 
-  return ncopy;
+  return (_image->width () + (GameBoard::TILE_WIDTH))
+         / (GameBoard::TILE_WIDTH + 1);
 }
 
-quint64 Buffer::empty (void* dst, quint64 size)
+int Image::get_height () const
 {
-  if (!dst)
-    return 0;
+  RLOCK ();
 
-  quint64 ncopy = size > (_size - _offset) ? (_size - _offset) : size;
-
-  if (!ncopy)
-    return 0;
-
-  memcpy (dst, _data, ncopy);
-  discard (ncopy);
-
-  return ncopy;
+  return (_image->height () + (GameBoard::TILE_HEIGHT))
+         / (GameBoard::TILE_HEIGHT + 1);
 }
 
-quint64 Buffer::discard (quint64 size)
+QSize Image::get_size () const
 {
-  quint64 nmove = size > _size ? _size : size;
+  RLOCK ();
 
-  if (!nmove)
-    return 0;
-
-  memmove (_data, _data + nmove, _size - nmove);
-
-  _offset -= nmove;
-
-  return nmove;
+  return QSize (get_width (), get_height ());
 }
 
-void Buffer::clear ()
+void Image::transfer_complete (const QByteArray& data)
 {
-  _offset = 0;
+  WLOCK ();
+
+  delete _image;
+  _image = new QImage (QImage::fromData (data));
+
+  ImageDatabase::get_instance ().add (data);
+
+  changed ();
+
+  _transfer->deleteLater ();
+  _transfer = nullptr;
 }

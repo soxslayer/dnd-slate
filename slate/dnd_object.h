@@ -1,9 +1,9 @@
-/* Copyright (c) 2012, Dustin Mitchell dmmitche <at> gmail <dot> com
+/* Copyright (c) 2013, Dustin Mitchell dmmitche <at> gmail <dot> com
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * - Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
  *
@@ -28,16 +28,20 @@
 #define __DND_OBJECT__
 
 #include "uuid.h"
+#include "serializable.h"
 
-class DnDObject
+class DnDObject : public Serializable
 {
 public:
   DnDObject ();
   DnDObject (Uuid uuid);
 
-  bool is_uuid_valid () const { return _uuid != UuidManager::UUID_INVALID; }
-  void set_uuid (Uuid uuid) { _uuid = uuid; }
-  Uuid get_uuid () const { return _uuid; }
+  bool is_uuid_valid () const
+  { auto l = read_lock (); return _uuid != UuidManager::UUID_INVALID; }
+  void set_uuid (Uuid uuid)
+  { auto l = write_lock (); _uuid = uuid; }
+  Uuid get_uuid () const
+  { auto l = read_lock (); return _uuid; }
 
 private:
   Uuid _uuid;

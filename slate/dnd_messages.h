@@ -1,9 +1,9 @@
-/* Copyright (c) 2012, Dustin Mitchell dmmitche <at> gmail <dot> com
+/* Copyright (c) 2013, Dustin Mitchell dmmitche <at> gmail <dot> com
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * - Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
  *
@@ -30,7 +30,7 @@
 #include <QtGlobal>
 
 #define COMM_PROTO_MAJOR 0
-#define COMM_PROTO_MINOR 2
+#define COMM_PROTO_MINOR 3
 
 #define SYNC_FIELD 0xdeadbeef
 
@@ -42,15 +42,16 @@
 #define DND_USER_ADD_RESP 4
 #define DND_USER_DEL 5
 #define DND_CHAT_MESSAGE 6
-#define DND_LOAD_IMAGE 7
-#define DND_IMAGE_BEGIN 8
-#define DND_IMAGE_DATA 9
-#define DND_IMAGE_END 10
+#define DND_LOAD_MAP 7
+#define DND_REQUEST_IMAGE 8
+#define DND_IMAGE_BEGIN 9
+#define DND_IMAGE_DATA 10
 #define DND_ADD_TILE 11
 #define DND_MOVE_TILE 12
 #define DND_DELETE_TILE 13
 #define DND_PING_PONG 14
 #define DND_PING_PONG_RECORD 15
+#define DND_IMAGE_QUERY 16
 
 #pragma pack(1)
 
@@ -114,17 +115,26 @@ struct DnDChatMessage
   char message[1];
 };
 
-struct DnDLoadImage
+#define DND_IMAGE_ID_LEN 40
+
+struct DnDLoadMap
 {
   DnDMessageHeader header;
-  char file_name[1];
+  quint16 w;
+  quint16 h;
+  char image_id[DND_IMAGE_ID_LEN];
+};
+
+struct DnDRequestImage
+{
+  DnDMessageHeader header;
+  char image_id[DND_IMAGE_ID_LEN];
 };
 
 struct DnDImageBegin
 {
   DnDMessageHeader header;
-  quint32 total_size;
-  quint32 id;
+  quint64 total_size;
 };
 
 #define DND_IMAGE_MAX_CHUNK_SIZE 1024
@@ -132,15 +142,8 @@ struct DnDImageBegin
 struct DnDImageData
 {
   DnDMessageHeader header;
-  quint32 id;
   quint32 sequence;
-  uchar data[1];
-};
-
-struct DnDImageEnd
-{
-  DnDMessageHeader header;
-  quint32 id;
+  char data[1];
 };
 
 struct DnDAddTile
@@ -179,6 +182,12 @@ struct DnDPingPongRecord
   DnDMessageHeader header;
   quint32 player_uuid;
   quint32 delay;
+};
+
+struct DnDImageQuery
+{
+  DnDMessageHeader header;
+  char image_id[DND_IMAGE_ID_LEN];
 };
 
 #pragma pack()

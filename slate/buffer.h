@@ -1,9 +1,9 @@
-/* Copyright (c) 2012, Dustin Mitchell dmmitche <at> gmail <dot> com
+/* Copyright (c) 2013, Dustin Mitchell dmmitche <at> gmail <dot> com
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * - Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
  *
@@ -29,10 +29,10 @@
 
 #include <QObject>
 
-class Buffer : public QObject
+class Buffer
 {
 public:
-  Buffer (quint64 size, QObject* parent = 0);
+  Buffer (quint64 size);
   virtual ~Buffer ();
 
   quint64 get_size () const { return _size; }
@@ -47,6 +47,7 @@ public:
 
 private:
   char* _data;
+  char* _raw_data;
   quint64 _size;
   quint64 _offset;
 };

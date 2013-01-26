@@ -24,13 +24,13 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __COMMAND_HANDLER__
-#define __COMMAND_HANDLER__
+#ifndef __SHA_UTIL__
+#define __SHA_UTIL__
 
-class CommandHandler
-{
-public:
-  virtual ~CommandHandler () = 0;
-};
+#include <QString>
 
-#endif /* __COMMAND_HANDLER__ */
+class SHA1;
+
+QString sha1_to_string (SHA1& sha);
+
+#endif /* __SHA_UTIL__ */

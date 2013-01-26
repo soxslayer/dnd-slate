@@ -1,9 +1,9 @@
-/* Copyright (c) 2012, Dustin Mitchell dmmitche <at> gmail <dot> com
+/* Copyright (c) 2013, Dustin Mitchell dmmitche <at> gmail <dot> com
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * - Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
  *
@@ -27,15 +27,17 @@
 #ifndef __BUFFER_MANAGER__
 #define __BUFFER_MANAGER__
 
-#include <QObject>
 #include <QMultiHash>
+
+#include "serializable.h"
 
 class Buffer;
 
-class BufferManager : public QObject
+class BufferManager : public Serializable
 {
 public:
-  BufferManager (QObject* parent = 0) : QObject (parent) { }
+  BufferManager ();
+  ~BufferManager ();
 
   Buffer* alloc (quint64 size);
   void free (Buffer* buff);

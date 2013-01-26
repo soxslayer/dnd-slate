@@ -1,9 +1,9 @@
-/* Copyright (c) 2012, Dustin Mitchell dmmitche <at> gmail <dot> com
+/* Copyright (c) 2013, Dustin Mitchell dmmitche <at> gmail <dot> com
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * - Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
  *
@@ -33,6 +33,7 @@
 #include "dnd_messages.h"
 #include "tile.h"
 #include "util.h"
+#include "image_request.h"
 
 #define PING_PONG_INTERVAL 1000
 
@@ -60,28 +61,30 @@ void DnDServer::incomingConnection (int socketDescriptor)
   client->setSocketDescriptor (socketDescriptor);
 
   connect (client, SIGNAL (comm_proto_req (DnDClient*)),
-           this, SLOT (client_comm_proto_req (DnDClient*)));
+           SLOT (client_comm_proto_req (DnDClient*)));
   connect (client, SIGNAL (user_add_req (DnDClient*, const QString&)),
-           this, SLOT (client_user_add_req (DnDClient*, const QString&)));
+           SLOT (client_user_add_req (DnDClient*, const QString&)));
   connect (client,
-    SIGNAL (chat_message (DnDClient*, Uuid, Uuid, const QString&, int)), this,
+    SIGNAL (chat_message (DnDClient*, Uuid, Uuid, const QString&, int)),
     SLOT (client_chat_message (DnDClient*, Uuid, Uuid, const QString&, int)));
-  connect (client, SIGNAL (load_image (DnDClient*, const QString&)),
-           this, SLOT (client_load_image (DnDClient*, const QString&)));
+  connect (client, SIGNAL (request_image (DnDClient*, const ImageId&)),
+    SLOT (client_request_image (DnDClient*, const ImageId&)));
+  connect (client,
+    SIGNAL (load_map (DnDClient*, quint16, quint16,  const ImageId&)),
+    SLOT (client_load_map (DnDClient*, quint16, quint16,  const ImageId&)));
   connect (client, SIGNAL (add_tile (DnDClient*, Uuid, quint8, quint16,
                            quint16, quint16, quint16, const QString&)),
-           this, SLOT (client_add_tile (DnDClient*, Uuid, quint8, quint16,
+           SLOT (client_add_tile (DnDClient*, Uuid, quint8, quint16,
                        quint16, quint16, quint16, const QString&)));
   connect (client, SIGNAL (move_tile (DnDClient*, Uuid, quint16,
                            quint16)),
-           this, SLOT (client_move_tile (DnDClient*, Uuid,
-                       quint16, quint16)));
+           SLOT (client_move_tile (DnDClient*, Uuid, quint16, quint16)));
   connect (client, SIGNAL (delete_tile (DnDClient*, Uuid)),
-           this, SLOT (client_delete_tile (DnDClient*, Uuid)));
+           SLOT (client_delete_tile (DnDClient*, Uuid)));
   connect (client, SIGNAL (disconnected (DnDClient*)),
-           this, SLOT (client_disconnected (DnDClient*)));
+           SLOT (client_disconnected (DnDClient*)));
   connect (client, SIGNAL (ping_pong (DnDClient*)),
-           this, SLOT (client_ping_pong (DnDClient*)));
+           SLOT (client_ping_pong (DnDClient*)));
 
   ClientRecord* rec = new ClientRecord;
   rec->client = client;
@@ -138,7 +141,10 @@ void DnDServer::client_user_add_req (DnDClient* client, const QString& name)
                                             r->player.get_name ());
            });
 
-  send_map (record->client);
+  if (_map_id.is_valid ()) {
+    record->client->load_map (_map_size.width (), _map_size.height (),
+                              _map_id);
+  }
 
   record->ping_pong.start ();
   record->client->ping_pong ();
@@ -173,7 +179,38 @@ void DnDServer::client_chat_message (DnDClient* client, Uuid,
            });
 }
 
-void DnDServer::client_load_image (DnDClient* client, const QString& file_name)
+void DnDServer::client_request_image (DnDClient* client,
+                                      const ImageId& image_id)
+{
+  ClientRecord* record = _clients[client];
+
+  if (_image_cache.count (image_id) == 0) {
+    ImageRequest* trans;
+
+    if (_current_transfers.count (image_id) == 0) {
+      trans = new ImageRequest (image_id);
+
+      for_all (_clients, [&] (ClientRecord* r)
+                         {
+                           if (r->client == record->client)
+                             return;
+
+                           trans->add_query_client (r);
+                         });
+
+      connect (trans, SIGNAL (complete (const ImageId&, const QByteArray&)),
+        SLOT (image_transfer_complete (const ImageId&, const QByteArray&)));
+    }
+    else
+      trans = _current_transfers[image_id];
+
+    trans->add_pending_client (record);
+    trans->execute ();
+  }
+}
+
+void DnDServer::client_load_map (DnDClient* client, quint16 w, quint16 h,
+                                 const ImageId& image_id)
 {
   ClientRecord* record = _clients[client];
 
@@ -183,13 +220,9 @@ void DnDServer::client_load_image (DnDClient* client, const QString& file_name)
     return;
   }
 
-  QFile image_file (file_name);
-  if (!image_file.open (QIODevice::ReadOnly)) {
-    record->client->server_message ("Cannot open file", MESSAGE_ERROR);
-    return;
-  }
-
-  _map_data = image_file.readAll ();
+  _map_id = image_id;
+  _map_size.setWidth (w);
+  _map_size.setHeight (h);
 
   for_all (_clients,
            [&] (ClientRecord* r)
@@ -197,7 +230,7 @@ void DnDServer::client_load_image (DnDClient* client, const QString& file_name)
              if (!r->active)
                return;
 
-             send_map (r->client);
+             r->client->load_map (w, h, _map_id);
            });
 }
 
@@ -234,7 +267,7 @@ void DnDServer::client_move_tile (DnDClient* client, Uuid tile_uuid, quint16 x,
                                   quint16 y)
 {
   ClientRecord* record = _clients[client];
-  TileMap::iterator tile_iter = _tiles.find (tile_uuid);
+  auto tile_iter = _tiles.find (tile_uuid);
 
   if (tile_iter == _tiles.end ()) {
     client->server_message ("Invalid tile UUID", MESSAGE_ERROR);
@@ -264,7 +297,7 @@ void DnDServer::client_move_tile (DnDClient* client, Uuid tile_uuid, quint16 x,
 void DnDServer::client_delete_tile (DnDClient* client, Uuid tile_uuid)
 {
   ClientRecord* record = _clients[client];
-  TileMap::iterator tile_iter = _tiles.find (tile_uuid);
+  auto tile_iter = _tiles.find (tile_uuid);
 
   if (tile_iter == _tiles.end ()) {
     client->server_message ("Invalid tile UUID", MESSAGE_ERROR);
@@ -311,6 +344,7 @@ void DnDServer::client_ping_pong (DnDClient* client)
 
 void DnDServer::ping_pong_timeout ()
 {
+#ifndef DISABLE_PING_PONG
   for_all (_clients,
            [] (ClientRecord* r)
            {
@@ -320,29 +354,13 @@ void DnDServer::ping_pong_timeout ()
              r->ping_pong.restart ();
              r->client->ping_pong ();
            });
+#endif
 }
 
-void DnDServer::send_map (DnDClient* client)
+void DnDServer::image_transfer_complete (const ImageId& image_id,
+                                         const QByteArray& data)
 {
-  Uuid transfer_id = _uuid_manager.get_uuid ();
-
-  if (!_map_data.size ())
-    return;
-
-  client->image_begin (_map_data.size (), transfer_id);
-
-  int total_chunks = (_map_data.size () + DND_IMAGE_MAX_CHUNK_SIZE - 1)
-                     / DND_IMAGE_MAX_CHUNK_SIZE;
-
-  for (int i = 0; i < total_chunks; ++i) {
-    int chunk_size = _map_data.size () - i * DND_IMAGE_MAX_CHUNK_SIZE;
-    if (chunk_size > DND_IMAGE_MAX_CHUNK_SIZE)
-      chunk_size = DND_IMAGE_MAX_CHUNK_SIZE;
-
-    client->image_data (transfer_id, i,
-      (uchar*)(_map_data.data () + i * DND_IMAGE_MAX_CHUNK_SIZE),
-      chunk_size);
-  }
-
-  client->image_end (transfer_id);
+  _image_cache.insert (image_id, data);
+  delete _current_transfers[image_id];
+  _current_transfers.remove (image_id);
 }

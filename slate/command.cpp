@@ -1,9 +1,9 @@
 /* Copyright (c) 2013, Dustin Mitchell dmmitche <at> gmail <dot> com
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * - Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
  *
@@ -32,8 +32,6 @@
 MarshaledCommand::MarshaledCommand (CommandBase& base, QObject* parent)
   : QObject (parent), _base (base)
 {
-  qRegisterMetaType<CommandMarshalReceiver::InfoType> (
-    "CommandMarshalReceiver::InfoType");
   connect (this,
            SIGNAL (marshal_command (CommandMarshalReceiver::InfoType)),
            &CommandManager::get_marshal_receiver (),

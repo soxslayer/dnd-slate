@@ -24,13 +24,34 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __COMMAND_HANDLER__
-#define __COMMAND_HANDLER__
+#ifndef __IMAGE_TRANSFER__
+#define __IMAGE_TRANSFER__
 
-class CommandHandler
+#include <QObject>
+#include <QByteArray>
+
+#include "image_id.h"
+
+class DnDClient;
+
+class ImageTransfer : public QObject
 {
-public:
-  virtual ~CommandHandler () = 0;
+  Q_OBJECT
+
+public: 
+  ImageTransfer (DnDClient* client, QObject* parent = nullptr);
+
+signals:
+  void complete (const QByteArray& data);
+
+private slots:
+  void image_begin (DnDClient* client, quint64 total_size);
+  void image_data (DnDClient* client, quint32 sequence,
+                   const QByteArray& data);
+
+private:
+  QByteArray _data;
+  quint64 _total_size;
 };
 
-#endif /* __COMMAND_HANDLER__ */
+#endif /* __IMAGE_TRANSFER__ */

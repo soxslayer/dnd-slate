@@ -14,8 +14,9 @@
 
 GameBoard::GameBoard (QWidget* parent)
   : QGraphicsView (parent),
-    _map (0),
-    _selected_item (0)
+    _map (nullptr),
+    _map_size (0, 0),
+    _selected_item (nullptr)
 {
   _scene = new QGraphicsScene (this);
 
@@ -25,28 +26,20 @@ GameBoard::GameBoard (QWidget* parent)
   setSizePolicy (QSizePolicy::Expanding, QSizePolicy::Expanding);
 }
 
-GameBoard::~GameBoard ()
+void GameBoard::set_map (const ImagePointer& image)
 {
-  if (_map)
-    delete _map;
-}
-
-void GameBoard::set_map (QImage* image)
-{
-  if (_map)
-    delete _map;
-
   _map = image;
 
   if (image) {
-    QSize img_size = image->size ();
-    setSceneRect (0, 0, img_size.width (), img_size.height ());
-    _width = (img_size.width () + TILE_WIDTH - 1) / (TILE_WIDTH + 1);
-    _height = (img_size.height () + TILE_HEIGHT - 1) / (TILE_HEIGHT + 1);
+    _map_size = image->get_size ();
+    setSceneRect (0, 0, _map_size.width () * TILE_WIDTH,
+                  _map_size.height () * TILE_HEIGHT);
+
+    connect (_map.data (), SIGNAL (changed ()), SLOT (map_changed ()));
   }
   else {
-    _width = 0;
-    _height = 0;
+    _map_size.setWidth (0);
+    _map_size.setHeight (0);
     setBackgroundBrush (QBrush ());
   }
 
@@ -55,7 +48,7 @@ void GameBoard::set_map (QImage* image)
 
 void GameBoard::clear_map ()
 {
-  set_map (0);
+  set_map (ImagePointer (nullptr));
   setSceneRect (0, 0, 0, 0);
   delete _scene;
   _scene = new QGraphicsScene (this);
@@ -122,7 +115,7 @@ void GameBoard::drawBackground (QPainter* painter, const QRectF& rect)
 {
   /* Manually draw image so it doesn't get tiled */
   if (_map) {
-    painter->drawImage (rect.topLeft (), *_map, rect);
+    painter->drawImage (rect.topLeft (), *_map->get_image (), rect);
 
     QRectF scene_rect = sceneRect ();
     QRectF draw_rect = rect;
@@ -174,14 +167,19 @@ void GameBoard::mousePressEvent (QMouseEvent* event)
     int n_x = scene_pos.x () / (TILE_WIDTH + 1);
     int n_y = scene_pos.y () / (TILE_HEIGHT + 1);
 
-    if (n_x > _width - _selected_item->get_width ())
-      n_x = _width - _selected_item->get_width ();
-    if (n_y > _height - _selected_item->get_height ())
-      n_y = _height - _selected_item->get_height ();
+    if (n_x > _map_size.width () - _selected_item->get_width ())
+      n_x = _map_size.width () - _selected_item->get_width ();
+    if (n_y > _map_size.height () - _selected_item->get_height ())
+      n_y = _map_size.height () - _selected_item->get_height ();
 
     tile_moved (_selected_item->get_tile (), n_x, n_y);
 
     _selected_item->set_selected (false);
     _selected_item = 0;
   }
+}
+
+void GameBoard::map_changed ()
+{
+  _scene->invalidate ();
 }

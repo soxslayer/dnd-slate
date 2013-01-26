@@ -1,9 +1,9 @@
-/* Copyright (c) 2012, Dustin Mitchell dmmitche <at> gmail <dot> com
+/* Copyright (c) 2013, Dustin Mitchell dmmitche <at> gmail <dot> com
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * - Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
  *
@@ -24,9 +24,49 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "resource_manager.h"
+#ifndef __IMAGE_REQUEST__
+#define __IMAGE_REQUEST__
 
-ResourceManager::ResourceManager (QObject* parent)
-  : QObject (parent)
+#include <QObject>
+#include <QByteArray>
+#include <QHash>
+#include <QTimer>
+
+#include "image_id.h"
+#include "dnd_server.h"
+
+class DnDClient;
+class ImageTransfer;
+
+class ImageRequest : public QObject
 {
-}
+  Q_OBJECT
+
+public: 
+  ImageRequest (const ImageId& image_id, QObject* parent = nullptr);
+
+  void add_query_client (DnDServer::ClientRecord* client);
+  void add_pending_client (DnDServer::ClientRecord* client);
+  void execute ();
+
+signals:
+  void complete (const ImageId& image_id, const QByteArray& data);
+
+private slots:
+  void image_query (DnDClient* client, const ImageId& image_id);
+  void query_timeout ();
+  void transfer_complete (const QByteArray& data);
+
+private:
+  ImageId _image_id;
+  QHash<DnDClient*, DnDServer::ClientRecord*> _query_clients;
+  QHash<DnDClient*, DnDServer::ClientRecord*> _pending_clients;
+  DnDServer::ClientRecord* _best_client;
+  bool _started;
+  QTimer _query_timeout;
+  ImageTransfer* _transfer;
+
+  void begin_transfer (DnDServer::ClientRecord* client);
+};
+
+#endif /* __IMAGE_REQUEST__ */

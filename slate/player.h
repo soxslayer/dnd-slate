@@ -1,9 +1,9 @@
-/* Copyright (c) 2012, Dustin Mitchell dmmitche <at> gmail <dot> com
+/* Copyright (c) 2013, Dustin Mitchell dmmitche <at> gmail <dot> com
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * - Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
  *
@@ -31,6 +31,7 @@
 #include <QSharedPointer>
 
 #include "dnd_object.h"
+#include "serializable.h"
 
 class Player : public DnDObject
 {
@@ -39,12 +40,12 @@ public:
   Player (Uuid uuid, const QString& name, bool is_me = false,
           bool is_dm = false);
 
-  const QString& get_name () const { return _name; }
-  void set_name (const QString& name) { _name = name; }
-  bool get_me () const { return _me; }
-  void set_me (bool is_me = true) { _me = is_me; }
-  bool get_dm () const { return _dm; }
-  void set_dm (bool is_dm = true) { _dm = is_dm; }
+  const QString& get_name () const { RLOCK(); return _name; }
+  void set_name (const QString& name) { WLOCK(); _name = name; }
+  bool get_me () const { RLOCK(); return _me; }
+  void set_me (bool is_me = true) { WLOCK(); _me = is_me; }
+  bool get_dm () const { RLOCK(); return _dm; }
+  void set_dm (bool is_dm = true) { WLOCK(); _dm = is_dm; }
 
 private:
   QString _name;

@@ -1,9 +1,9 @@
-/* Copyright (c) 2012, Dustin Mitchell dmmitche <at> gmail <dot> com
+/* Copyright (c) 2013, Dustin Mitchell dmmitche <at> gmail <dot> com
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * - Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
  *
@@ -33,13 +33,14 @@
 #include "uuid.h"
 #include "player.h"
 #include "dnd_controller.h"
+#include "image.h"
 
 class QAction;
 class QLabel;
+class QThread;
 class ChatWidget;
 class PlayerList;
 class GameBoard;
-class QByteArray;
 class CommandParamList;
 
 class SlateWindow : public QMainWindow
@@ -48,7 +49,7 @@ class SlateWindow : public QMainWindow
 
 public:
   SlateWindow ();
-  ~SlateWindow () { }
+  ~SlateWindow ();
 
   bool connect_command (const CommandParamList& params);
   bool disconnect_command (const CommandParamList& params);
@@ -71,8 +72,7 @@ private slots:
   void chat_message (const PlayerPointer& sender,
                      const PlayerPointer& receiver,
                      const QString& message);
-  void map_updated (const ImageDataPointer& data);
-  //void delete_tile (DnDClient* client, Uuid tile_uuid);
+  void map_changed (const ImagePointer& image);
 
 private:
   QAction* _open_action;
@@ -84,6 +84,7 @@ private:
   ChatWidget* _chat_widget;
   PlayerList* _player_list;
   GameBoard* _board;
+  QThread* _controller_thread;
   DnDController* _controller;
 
   void disconnect_client ();

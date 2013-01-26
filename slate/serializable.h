@@ -24,13 +24,58 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __COMMAND_HANDLER__
-#define __COMMAND_HANDLER__
+#ifndef __SERIALIZABLE__
+#define __SERIALIZABLE__
 
-class CommandHandler
+class QReadWriteLock;
+
+class ReadLock
 {
 public:
-  virtual ~CommandHandler () = 0;
+  ReadLock ();
+  ReadLock (QReadWriteLock* lock);
+  /* Moves the held read lock to the instance being created */
+  ReadLock (ReadLock&& lock);
+  ~ReadLock ();
+
+private:
+  QReadWriteLock* _lock;
+
+  ReadLock (const ReadLock&) { }
+  const ReadLock& operator= (const ReadLock&) { return *this; }
 };
 
-#endif /* __COMMAND_HANDLER__ */
+class WriteLock
+{
+public:
+  WriteLock ();
+  WriteLock (QReadWriteLock* lock);
+  /* Moves the hels write lock to the instances being created */
+  WriteLock (WriteLock&& lock);
+  ~WriteLock ();
+
+private:
+  QReadWriteLock* _lock;
+
+  WriteLock (const WriteLock&) { }
+  const WriteLock& operator= (const WriteLock&) { return *this; }
+};
+
+#define RLOCK() auto l = read_lock ()
+#define WLOCK() auto l = write_lock ()
+
+class Serializable
+{
+public:
+  Serializable (bool serialized = false);
+  ~Serializable ();
+
+  void serialize ();
+  ReadLock read_lock () const;
+  WriteLock write_lock ();
+
+private:
+  QReadWriteLock* _lock;
+};
+
+#endif /* __SERIALIZABLE__ */

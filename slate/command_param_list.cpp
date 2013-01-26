@@ -1,9 +1,9 @@
 /* Copyright (c) 2013, Dustin Mitchell dmmitche <at> gmail <dot> com
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * - Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
  *
@@ -59,7 +59,7 @@ bool CommandParamList::verify_signature (const string& sig) const
 
 const CommandParam* CommandParamList::get_param (int index) const
 {
-  if (index >= _params.size ())
+  if ((unsigned)index >= _params.size ())
     return 0;
 
   return _params[index];

@@ -24,13 +24,95 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __COMMAND_HANDLER__
-#define __COMMAND_HANDLER__
+#include <QReadWriteLock>
 
-class CommandHandler
+#include "serializable.h"
+
+ReadLock::ReadLock ()
+  : _lock (nullptr)
 {
-public:
-  virtual ~CommandHandler () = 0;
-};
+}
 
-#endif /* __COMMAND_HANDLER__ */
+ReadLock::ReadLock (QReadWriteLock* lock)
+  : _lock (lock)
+{
+  if (_lock)
+    _lock->lockForRead ();
+}
+
+ReadLock::ReadLock (ReadLock&& lock)
+  : _lock (lock._lock)
+{
+  lock._lock = nullptr;
+}
+
+ReadLock::~ReadLock ()
+{
+  if (_lock)
+    _lock->unlock ();
+}
+
+
+
+WriteLock::WriteLock ()
+  : _lock (0)
+{
+}
+
+WriteLock::WriteLock (QReadWriteLock* lock)
+  : _lock (lock)
+{
+  if (_lock)
+    _lock->lockForWrite ();
+}
+
+WriteLock::WriteLock (WriteLock&& lock)
+  : _lock (lock._lock)
+{
+  lock._lock = nullptr;
+}
+
+WriteLock::~WriteLock ()
+{
+  if (_lock)
+    _lock->unlock ();
+}
+
+
+
+Serializable::Serializable (bool serialized)
+  : _lock (nullptr)
+{
+  if (serialized)
+    serialize ();
+}
+
+Serializable::~Serializable ()
+{
+  if (_lock)
+    delete _lock;
+}
+
+void Serializable::serialize ()
+{
+  if (_lock)
+    return;
+
+  _lock = new QReadWriteLock (QReadWriteLock::Recursive);
+}
+
+ReadLock Serializable::read_lock () const
+{
+  if (!_lock)
+    return ReadLock ();
+
+  return ReadLock (_lock);
+}
+
+WriteLock Serializable::write_lock ()
+{
+  if (!_lock)
+    return WriteLock ();
+
+  return WriteLock (_lock);
+}

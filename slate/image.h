@@ -24,13 +24,46 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __COMMAND_HANDLER__
-#define __COMMAND_HANDLER__
+#ifndef __IMAGE__
+#define __IMAGE__
 
-class CommandHandler
+#include <QObject>
+#include <QSharedPointer>
+#include <QSize>
+
+#include "serializable.h"
+
+class QByteArray;
+class QImage;
+class QString;
+class DnDClient;
+class ImageTransfer;
+
+class Image : public QObject, public Serializable
 {
+  Q_OBJECT
+
 public:
-  virtual ~CommandHandler () = 0;
+  Image (int width, int height, DnDClient* client);
+  Image (const QString& filename);
+  ~Image ();
+
+  const QImage* get_image () const { RLOCK (); return _image; }
+  int get_width () const;
+  int get_height () const;
+  QSize get_size () const;
+
+signals:
+  void changed ();
+
+private slots:
+  void transfer_complete (const QByteArray& data);
+
+private:
+  QImage* _image;
+  ImageTransfer* _transfer;
 };
 
-#endif /* __COMMAND_HANDLER__ */
+typedef QSharedPointer<Image> ImagePointer;
+
+#endif /* __IMAGE__ */

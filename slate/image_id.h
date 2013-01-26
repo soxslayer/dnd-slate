@@ -1,9 +1,9 @@
-/* Copyright (c) 2012, Dustin Mitchell dmmitche <at> gmail <dot> com
+/* Copyright (c) 2013, Dustin Mitchell dmmitche <at> gmail <dot> com
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * - Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
  *
@@ -24,18 +24,35 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __RESOURCE_MANAGER__
-#define __RESOURCE_MANAGER__
+#ifndef __IMAGE_ID__
+#define __IMAGE_ID__
 
-#include <QObject>
+#include <QString>
+#include <QByteArray>
 
-class ResourceManager : public QObject
+class ImageId
 {
 public:
-  ResourceManager (QObject* parent = 0);
+  ImageId ();
+  ImageId (const char* id, int size = -1);
+  ImageId (const ImageId& id);
+  ImageId (const QString& id);
 
-  void add_path (const QString& path);
-  QFile open_resource (const QString& res);
+  const ImageId& operator= (const ImageId& id);
+  const ImageId& operator= (const QString& id);
+
+  QByteArray data () const { return _id.toAscii (); }
+  bool is_valid () const { return !_id.isEmpty (); }
+
+  operator QString& () { return _id; }
+  operator const QString& () const { return _id; }
+  bool operator== (const ImageId& id) const { return _id == id._id; }
+  bool operator== (const QString& id) const { return _id == id; }
+  bool operator!= (const ImageId& id) const { return !(*this == id); }
+  bool operator!= (const QString& id) const { return !(*this == id); }
+
+private:
+  QString _id;
 };
 
-#endif /* __RESOURCE_MANAGER__ */
+#endif /* __IMAGE_ID__ */

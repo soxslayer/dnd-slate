@@ -1,9 +1,9 @@
-/* Copyright (c) 2012, Dustin Mitchell dmmitche <at> gmail <dot> com
+/* Copyright (c) 2013, Dustin Mitchell dmmitche <at> gmail <dot> com
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * - Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
  *
@@ -24,6 +24,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <QFile>
+
 #include "dnd_controller.h"
 #include "dnd_server.h"
 #include "dnd_client.h"
@@ -33,16 +35,19 @@
 #include "command_manager.h"
 #include "command_param_list.h"
 #include "command_param.h"
+#include "image_database.h"
+#include "image_id.h"
 
 DnDController::DnDController ()
   : _connect_cmd (this, &DnDController::connect_cmd),
     _disconnect_cmd (this, &DnDController::disconnect_cmd),
-    _set_map_cmd (this, &DnDController::set_map_cmd),
-    _add_tile_cmd (this, &DnDController::add_tile_cmd)
+    _load_map_cmd (this, &DnDController::load_map_cmd),
+    _add_tile_cmd (this, &DnDController::add_tile_cmd),
+    _image_db (ImageDatabase::get_instance ())
 {
   CommandManager::add_command ("connect", &_connect_cmd);
   CommandManager::add_command ("disconnect", &_disconnect_cmd);
-  CommandManager::add_command ("set_map", &_set_map_cmd);
+  CommandManager::add_command ("load_map", &_load_map_cmd);
   CommandManager::add_command ("add_tile", &_add_tile_cmd);
 }
 
@@ -100,13 +105,11 @@ void DnDController::connect (const QString& user_name, const QString& host,
     SIGNAL (chat_message (DnDClient*, Uuid, Uuid, const QString&, int)),
     SLOT (chat_message (DnDClient*, Uuid, Uuid, const QString&, int)));
   QObject::connect (_client,
-    SIGNAL (image_begin (DnDClient*, quint32, quint32)),
-    SLOT (image_begin (DnDClient*, quint32, quint32)));
+    SIGNAL (load_map (DnDClient*, quint16, quint16, const ImageId&)),
+    SLOT (load_map (DnDClient*, quint16, quint16, const ImageId&)));
   QObject::connect (_client,
-    SIGNAL (image_data (DnDClient*, quint32, quint32, const uchar*, quint32)),
-    SLOT (image_data (DnDClient*, quint32, quint32, const uchar*, quint32)));
-  QObject::connect (_client, SIGNAL (image_end (DnDClient*, quint32)),
-    SLOT (image_end (DnDClient*, quint32)));
+    SIGNAL (request_image (DnDClient*, const ImageId&)),
+    SLOT (request_image (DnDClient*, const ImageId&)));
   QObject::connect (_client,
     SIGNAL (add_tile (DnDClient*, Uuid, quint8, quint16, quint16, quint16,
             quint16, const QString&)),
@@ -119,6 +122,12 @@ void DnDController::connect (const QString& user_name, const QString& host,
     SLOT (delete_tile (DnDClient*, Uuid)));
   QObject::connect (_client, SIGNAL (ping_pong (DnDClient*)),
     SLOT (ping_pong (DnDClient*)));
+  QObject::connect (_client,
+    SIGNAL (ping_pong_record (DnDClient*, Uuid, quint32)),
+    SLOT (ping_pong_record (DnDClient*, Uuid, quint32)));
+  QObject::connect (_client,
+    SIGNAL (image_query (DnDClient*, const ImageId&)),
+    SLOT (image_query (DnDClient*, const ImageId&)));
 
   _client->comm_proto_req ();
 }
@@ -152,9 +161,38 @@ void DnDController::chat_message (const PlayerPointer& receiver,
   _client->chat_message (_me->get_uuid (), dst_uuid, message, flags);
 }
 
-void DnDController::set_map (const QString& file)
+void DnDController::load_map (const QString& filename)
 {
-  _client->load_image (file);
+  ImageId image_id = _image_db.add (filename);
+
+  if (!image_id.is_valid ()) {
+    server_message ("Unable to load map file", MESSAGE_ERROR, true);
+    return;
+  }
+
+  Image tmp (filename);
+
+  _client->load_map (tmp.get_width (), tmp.get_height (), image_id);
+}
+
+void DnDController::request_image (DnDClient*, const ImageId& image_id)
+{
+  if (!_image_db.has_entry (image_id)) {
+    server_message ("Got image request for an image I don't have",
+                    MESSAGE_ERROR, true);
+    return;
+  }
+
+  QFile f (_image_db.get_path (image_id));
+  if (!f.open (QIODevice::ReadOnly)) {
+    server_message ("Uable to open requested image file", MESSAGE_ERROR, true);
+    return;
+  }
+
+  QByteArray img_data = f.readAll ();
+  f.close ();
+
+  _client->send_image (img_data);
 }
 
 void DnDController::add_tile (Tile::TileType type, quint16 x, quint16 y,
@@ -217,6 +255,8 @@ void DnDController::user_add_resp (DnDClient*, Uuid uuid, const QString& name)
 
   _player_map.insert (uuid, PlayerPointer (new Player (uuid, name, is_me)));
 
+  _player_map[uuid]->serialize ();
+
   if (is_me)
     _me = _player_map[uuid];
 
@@ -251,39 +291,22 @@ void DnDController::chat_message (DnDClient*, Uuid src_uuid, Uuid dst_uuid,
   chat_message (src, dst, message);
 }
 
-void DnDController::image_begin (DnDClient*, quint32 size, quint32 id)
+void DnDController::load_map (DnDClient*, quint16 w, quint16 h,
+                              const ImageId& image_id)
 {
-  _image_transfer_map.insert (id, ImageDataPointer (new QByteArray (size, 0)));
-}
+  ImagePointer img;
 
-void DnDController::image_data (DnDClient*, quint32 id, quint32 seq,
-                                const uchar* data, quint32 size)
-{
-  if (_image_transfer_map.count (id) == 0)
-    return;
+  if (!_image_db.has_entry (image_id)) {
+    qDebug () << image_id << "not in database, requesting map file";
 
-  quint32 offset = seq * DND_IMAGE_MAX_CHUNK_SIZE;
-  quint32 end_byte = offset + size;
+    img = ImagePointer (new Image (w, h, _client));
 
-  /* Check for integer overflow */
-  if (offset > end_byte)
-    return;
+    _client->request_image (image_id);
+  }
+  else
+    img = ImagePointer (new Image (_image_db.get_path (image_id)));
 
-  if (end_byte > (quint32)_image_transfer_map[id]->size ())
-    return;
-
-  _image_transfer_map[id]->insert (seq * DND_IMAGE_MAX_CHUNK_SIZE,
-    (char*)data, size);
-}
-
-void DnDController::image_end (DnDClient*, quint32 id)
-{
-  if (_image_transfer_map.count (id) == 0)
-    return;
-
-  map_updated (_image_transfer_map[id]);
-
-  _image_transfer_map.remove (id);
+  map_changed (img);
 }
 
 void DnDController::add_tile (DnDClient*, Uuid tile_uuid, quint8 type,
@@ -291,8 +314,9 @@ void DnDController::add_tile (DnDClient*, Uuid tile_uuid, quint8 type,
                               const QString& text)
 {
   _tile_map.insert (tile_uuid,
-    TilePointer (new Tile (tile_uuid, text, (Tile::TileType)type, x, y, w, h))
-  );
+    TilePointer (new Tile (tile_uuid, text, (Tile::TileType)type,
+                           x, y, w, h)));
+  _tile_map[tile_uuid]->serialize ();
 
   tile_added (_tile_map[tile_uuid]);
 }
@@ -320,6 +344,17 @@ void DnDController::delete_tile (DnDClient*, Uuid tile_uuid)
 void DnDController::ping_pong (DnDClient*)
 {
   _client->ping_pong ();
+}
+
+void DnDController::ping_pong_record (DnDClient*, Uuid player_uuid,
+                                      quint32 delay)
+{
+}
+
+void DnDController::image_query (DnDClient*, const ImageId& image_id)
+{
+  if (_image_db.has_entry (image_id))
+    _client->image_query (image_id);
 }
 
 bool DnDController::connect_cmd (const CommandParamList& params)
@@ -354,18 +389,18 @@ bool DnDController::disconnect_cmd (const CommandParamList&)
   return true;
 }
 
-bool DnDController::set_map_cmd (const CommandParamList& params)
+bool DnDController::load_map_cmd (const CommandParamList& params)
 {
   QString file_name;
 
   if (params.verify_signature ("s"))
     file_name = params.get_param (0)->get_str ().c_str ();
   else {
-    qDebug () << "Invalid set_map params";
+    qDebug () << "Invalid load_map params";
     return false;
   }
 
-  set_map (file_name);
+  load_map (file_name);
 
   return true;
 }

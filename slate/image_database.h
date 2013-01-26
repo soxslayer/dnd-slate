@@ -24,13 +24,58 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __COMMAND_HANDLER__
-#define __COMMAND_HANDLER__
+#ifndef __IMAGE_DATABASE__
+#define __IMAGE_DATABASE__
 
-class CommandHandler
+#include <QHash>
+#include <QString>
+
+class QByteArray;
+
+#include "sha_util.h"
+#include "image_id.h"
+
+class ImageDatabase
 {
 public:
-  virtual ~CommandHandler () = 0;
+  static void init ();
+  static ImageDatabase& get_instance ();
+
+  ImageId add (const QString& filename);
+  ImageId add (const QByteArray& image);
+  QString get_path (const ImageId& sha);
+  ImageId get_sha (const QString& filename);
+  bool has_entry (const ImageId& sha) { return _hash.count (sha) != 0; }
+  void set_autoflush (bool auto_flush = true) { _af = auto_flush; }
+  void flush () const;
+
+private:
+  static ImageDatabase* _instance;
+  static QString _image_db_dir;
+  static QString _image_db_file;
+
+  struct DBEntry
+  {
+    DBEntry (const QString& path) : path (path), dirty (true) { }
+
+    QString path;
+    bool dirty;
+  };
+
+  QHash<ImageId, DBEntry*> _hash;
+  QHash<QString, ImageId> _reverse_hash;
+  bool _af;
+
+  ImageDatabase ();
+  ImageDatabase (const ImageDatabase&) { }
+  const ImageDatabase& operator= (const ImageDatabase&) { return *this; }
+  ~ImageDatabase ();
+
+  void read ();
+  QString clean_up_filename (const QString& filename);
+  ImageId calculate_sha (const QString& filename);
+  void add_entry (const ImageId& id, const QString& filename,
+                  bool dirty = true);
 };
 
-#endif /* __COMMAND_HANDLER__ */
+#endif /* __IMAGE_DATABASE__ */

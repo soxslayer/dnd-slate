@@ -1,9 +1,9 @@
-/* Copyright (c) 2012, Dustin Mitchell dmmitche <at> gmail <dot> com
+/* Copyright (c) 2013, Dustin Mitchell dmmitche <at> gmail <dot> com
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * - Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
  *
@@ -28,13 +28,21 @@
 #include <cstring>
 
 #include <QObject>
+#include <QByteArray>
 
 #include "dnd_client.h"
-#include <QByteArray>
 
 #include "dnd_messages.h"
 #include "net_buffer_pool.h"
 #include "buffer.h"
+#include "image_id.h"
+
+#ifdef NETWORK_DEBUG
+# include <QDebug>
+
+# include "sha1.h"
+# include "sha_util.h"
+#endif
 
 #pragma pack(1)
 
@@ -48,24 +56,45 @@ struct NetworkHeader
 
 DnDClient::DnDClient (QObject* parent)
   : QTcpSocket (parent),
-    _cur_msg_buff (0)
+    Serializable (true),
+    _cur_msg_buff (nullptr),
+    _cur_send_buff (nullptr)
 {
   connect_signals ();
 
   _sync_buffer = NET_BUFFER_POOL.alloc (sizeof (NetworkHeader));
-  _sync_buffer->setParent (this);
 }
 
 DnDClient::DnDClient (const QString& host, quint16 port, QObject* parent)
   : QTcpSocket (parent),
-    _cur_msg_buff (0)
+    Serializable (true),
+    _cur_msg_buff (nullptr),
+    _cur_send_buff (nullptr)
 {
   connect_signals ();
 
   connectToHost (host, port);
 
   _sync_buffer = NET_BUFFER_POOL.alloc (sizeof (NetworkHeader));
-  _sync_buffer->setParent (this);
+}
+
+DnDClient::~DnDClient ()
+{
+  NET_BUFFER_POOL.free (_sync_buffer);
+
+  if (_cur_msg_buff)
+    NET_BUFFER_POOL.free (_cur_msg_buff);
+}
+
+void DnDClient::send_image (const QByteArray& image)
+{
+  image_begin (image.size ());
+
+  for (int i = 0, s = 0; i < image.size ();
+       i += DND_IMAGE_MAX_CHUNK_SIZE, ++s) {
+    QByteArray chunk = image.mid (i, DND_IMAGE_MAX_CHUNK_SIZE);
+    image_data (s, chunk);
+  }
 }
 
 void DnDClient::comm_proto_req ()
@@ -74,7 +103,7 @@ void DnDClient::comm_proto_req ()
 
   msg.header.type = DND_COMM_PROTO_REQ;
 
-  send_message (&msg, sizeof (msg));
+  send_message (&msg, sizeof (msg), Priority0);
 }
 
 void DnDClient::comm_proto_resp (quint16 major, quint16 minor)
@@ -85,7 +114,7 @@ void DnDClient::comm_proto_resp (quint16 major, quint16 minor)
   msg.major = major;
   msg.minor = minor;
 
-  send_message (&msg, sizeof (msg));
+  send_message (&msg, sizeof (msg), Priority0);
 }
 
 void DnDClient::server_message (const QString& message, int flags)
@@ -96,9 +125,9 @@ void DnDClient::server_message (const QString& message, int flags)
   msg->header.type = DND_SERVER_MESSAGE;
   msg->flags = flags;
   QByteArray ascii_message = message.toAscii ();
-  memcpy (&msg->msg, ascii_message.data (), ascii_message.size ());
+  memcpy (msg->msg, ascii_message.data (), ascii_message.size ());
 
-  send_message (msg, msg_size);
+  send_message (msg, msg_size, Priority0);
 
   delete [] msg;
 }
@@ -110,9 +139,9 @@ void DnDClient::user_add_req (const QString& name)
 
   msg->header.type = DND_USER_ADD_REQ;
   QByteArray ascii_name = name.toAscii ();
-  memcpy (&msg->name, ascii_name.data (), ascii_name.size ());
+  memcpy (msg->name, ascii_name.data (), ascii_name.size ());
 
-  send_message (msg, msg_size);
+  send_message (msg, msg_size, Priority0);
 
   delete [] msg;
 }
@@ -125,9 +154,9 @@ void DnDClient::user_add_resp (Uuid uuid, const QString& name)
   msg->header.type = DND_USER_ADD_RESP;
   msg->uuid = uuid;
   QByteArray ascii_name = name.toAscii ();
-  memcpy (&msg->name, ascii_name.data (), ascii_name.size ());
+  memcpy (msg->name, ascii_name.data (), ascii_name.size ());
 
-  send_message (msg, msg_size);
+  send_message (msg, msg_size, Priority0);
 
   delete [] msg;
 }
@@ -139,7 +168,7 @@ void DnDClient::user_del (Uuid uuid)
   msg.header.type = DND_USER_DEL;
   msg.uuid = uuid;
 
-  send_message (&msg, sizeof (msg));
+  send_message (&msg, sizeof (msg), Priority0);
 }
 
 void DnDClient::chat_message (Uuid src_uuid, Uuid dst_uuid,
@@ -152,63 +181,58 @@ void DnDClient::chat_message (Uuid src_uuid, Uuid dst_uuid,
   msg->src_uuid = src_uuid;
   msg->dst_uuid = dst_uuid;
   QByteArray ascii_msg = message.toAscii ();
-  memcpy (&msg->message, ascii_msg.data (), ascii_msg.size ());
+  memcpy (msg->message, ascii_msg.data (), ascii_msg.size ());
   msg->flags = flags;
 
-  send_message (msg, msg_size);
+  send_message (msg, msg_size, Priority0);
 
   delete [] msg;
 }
 
-void DnDClient::load_image (const QString& file_name)
+void DnDClient::load_map (quint16 w, quint16 h, const ImageId& image_id)
 {
-  quint64 msg_size = sizeof (DnDLoadImage) - 1 + file_name.size ();
-  DnDLoadImage* msg = (DnDLoadImage*)new char[msg_size];
+  DnDLoadMap msg;
 
-  msg->header.type = DND_LOAD_IMAGE;
-  QByteArray ascii_file_name = file_name.toAscii ();
-  memcpy (&msg->file_name, ascii_file_name.data (), ascii_file_name.size ());
+  msg.header.type = DND_LOAD_MAP;
+  msg.w = w;
+  msg.h = h;
+  memcpy (msg.image_id, image_id.data ().constData (), sizeof (msg.image_id));
 
-  send_message (msg, msg_size);
-
-  delete [] msg;
+  send_message (&msg, sizeof (msg), Priority0);
 }
 
-void DnDClient::image_begin (quint32 total_size, quint32 id)
+void DnDClient::request_image (const ImageId& image_id)
+{
+  DnDRequestImage msg;
+
+  msg.header.type = DND_REQUEST_IMAGE;
+  memcpy (msg.image_id, image_id.data (), sizeof (msg.image_id));
+
+  send_message (&msg, sizeof (msg), Priority0);
+}
+
+void DnDClient::image_begin (quint64 total_size)
 {
   DnDImageBegin msg;
 
   msg.header.type = DND_IMAGE_BEGIN;
   msg.total_size = total_size;
-  msg.id = id;
 
-  send_message (&msg, sizeof (msg));
+  send_message (&msg, sizeof (msg), Priority0);
 }
 
-void DnDClient::image_data (quint32 id, quint32 sequence,
-                            const uchar* data, quint32 size)
+void DnDClient::image_data (quint32 sequence, const QByteArray& data)
 {
-  quint64 msg_size = sizeof (DnDImageData) - 1 + size;
+  quint64 msg_size = sizeof (DnDImageData) - 1 + data.size ();
   DnDImageData* msg = (DnDImageData*)new char[msg_size];
 
   msg->header.type = DND_IMAGE_DATA;
-  msg->id = id;
   msg->sequence = sequence;
-  memcpy (&msg->data, data, size);
+  memcpy (msg->data, data.constData (), data.size ());
 
-  send_message (msg, msg_size);
+  send_message (msg, msg_size, Priority1);
 
   delete [] msg;
-}
-
-void DnDClient::image_end (quint32 id)
-{
-  DnDImageEnd msg;
-
-  msg.header.type = DND_IMAGE_END;
-  msg.id = id;
-
-  send_message (&msg, sizeof (msg));
 }
 
 void DnDClient::add_tile (Uuid tile_uuid, quint8 type, quint16 x, quint16 y,
@@ -225,9 +249,9 @@ void DnDClient::add_tile (Uuid tile_uuid, quint8 type, quint16 x, quint16 y,
   msg->w = w;
   msg->h = h;
   QByteArray ascii_text = text.toAscii ();
-  memcpy (&msg->text, ascii_text.data (), ascii_text.size ());
+  memcpy (msg->text, ascii_text.data (), ascii_text.size ());
 
-  send_message (msg, msg_size);
+  send_message (msg, msg_size, Priority0);
 
   delete [] msg;
 }
@@ -241,7 +265,7 @@ void DnDClient::move_tile (Uuid tile_uuid, quint16 x, quint16 y)
   msg.x = x;
   msg.y = y;
 
-  send_message (&msg, sizeof (msg));
+  send_message (&msg, sizeof (msg), Priority0);
 }
 
 void DnDClient::delete_tile (Uuid tile_uuid)
@@ -251,7 +275,7 @@ void DnDClient::delete_tile (Uuid tile_uuid)
   msg.header.type = DND_DELETE_TILE;
   msg.tile_uuid = tile_uuid;
 
-  send_message (&msg, sizeof (msg));
+  send_message (&msg, sizeof (msg), Priority0);
 }
 
 void DnDClient::ping_pong ()
@@ -260,7 +284,7 @@ void DnDClient::ping_pong ()
 
   msg.header.type = DND_PING_PONG;
 
-  send_message (&msg, sizeof (msg));
+  send_message (&msg, sizeof (msg), Priority0);
 }
 
 void DnDClient::ping_pong_record (Uuid player_uuid, quint32 delay)
@@ -271,7 +295,17 @@ void DnDClient::ping_pong_record (Uuid player_uuid, quint32 delay)
   msg.player_uuid = player_uuid;
   msg.delay = delay;
 
-  send_message (&msg, sizeof (msg));
+  send_message (&msg, sizeof (msg), Priority0);
+}
+
+void DnDClient::image_query (const ImageId& image_id)
+{
+  DnDImageQuery msg;
+
+  msg.header.type = DND_IMAGE_QUERY;
+  memcpy (msg.image_id, image_id.data (), sizeof (msg.image_id));
+
+  send_message (&msg, sizeof (msg), Priority0);
 }
 
 void DnDClient::disconnected ()
@@ -294,19 +328,20 @@ void DnDClient::ready_read ()
 
 void DnDClient::bytes_written (qint64 bytes)
 {
-  Buffer* buff = _send_queue.head ();
+  _cur_send_buff->discard (bytes);
 
-  buff->discard (bytes);
+  if (!_cur_send_buff->get_filled_size ()) {
+    NET_BUFFER_POOL.free (_cur_send_buff);
+    _cur_send_buff = nullptr;
 
-  if (!buff->get_filled_size ()) {
-    NET_BUFFER_POOL.free (buff);
-    _send_queue.dequeue ();
-  }
-
-  if (_send_queue.size ()) {
-    buff = _send_queue.head ();
-
-    write ((char*)buff->get_data (), buff->get_filled_size ());
+    for (int i = 0; i <= PriorityMax; ++i) {
+      if (_send_queues[i].size ()) {
+        _cur_send_buff = _send_queues[i].head ();
+        _send_queues[i].dequeue ();
+        write_data (_cur_send_buff->get_data (),
+                    _cur_send_buff->get_filled_size ());
+      }
+    }
   }
 }
 
@@ -337,7 +372,6 @@ quint64 DnDClient::parse_packet (const void* data, quint64 size)
     }
 
     _cur_msg_buff = NET_BUFFER_POOL.alloc (hdr->size);
-    _cur_msg_buff->setParent (this);
     _sync_buffer->clear ();
   }
 
@@ -347,10 +381,19 @@ quint64 DnDClient::parse_packet (const void* data, quint64 size)
   nparsed += _cur_msg_buff->fill (data, size);
 
   if (!_cur_msg_buff->get_available_size ()) {
+#ifdef NETWORK_DEBUG
+    SHA1 sig;
+
+    sig.Input ((const char*)_cur_msg_buff->get_data (),
+               _cur_msg_buff->get_size ());
+
+    qDebug () << "Received packet, sig:" << sha1_to_string (sig);
+#endif
+
     handle_message ((DnDMessageHeader*)_cur_msg_buff->get_data (),
                     _cur_msg_buff->get_size ());
     NET_BUFFER_POOL.free (_cur_msg_buff);
-    _cur_msg_buff = 0;
+    _cur_msg_buff = nullptr;
   }
 
   return nparsed;
@@ -359,10 +402,9 @@ quint64 DnDClient::parse_packet (const void* data, quint64 size)
 void DnDClient::handle_message (const DnDMessageHeader* header, quint64 size)
 {
   switch (header->type) {
-    case DND_COMM_PROTO_REQ: {
+    case DND_COMM_PROTO_REQ:
       comm_proto_req (this);
       break;
-    }
 
     case DND_COMM_PROTO_RESP: {
       const DnDCommProtoResp* msg = (DnDCommProtoResp*)header;
@@ -408,30 +450,31 @@ void DnDClient::handle_message (const DnDMessageHeader* header, quint64 size)
       break;
     }
 
-    case DND_LOAD_IMAGE: {
-      const DnDLoadImage* msg = (DnDLoadImage*)header;
-      QString file_name = QString::fromAscii (msg->file_name,
-        size - offsetof (DnDLoadImage, file_name));
-      load_image (this, file_name);
+    case DND_LOAD_MAP: {
+      const DnDLoadMap* msg = (DnDLoadMap*)header;
+      ImageId image_id (msg->image_id, sizeof (msg->image_id));
+      load_map (this, msg->w, msg->h, image_id);
+      break;
+    }
+
+    case DND_REQUEST_IMAGE: {
+      const DnDRequestImage* msg = (DnDRequestImage*)header;
+      ImageId image_id (msg->image_id, sizeof (msg->image_id));
+      request_image (this, image_id);
       break;
     }
 
     case DND_IMAGE_BEGIN: {
       const DnDImageBegin* msg = (DnDImageBegin*)header;
-      image_begin (this, msg->total_size, msg->id);
+      image_begin (this, msg->total_size);
       break;
     }
 
     case DND_IMAGE_DATA: {
       const DnDImageData* msg = (DnDImageData*)header;
       quint64 data_size = size - offsetof (DnDImageData, data);
-      image_data (this, msg->id, msg->sequence, msg->data, data_size);
-      break;
-    }
-
-    case DND_IMAGE_END: {
-      const DnDImageEnd* msg = (DnDImageEnd*)header;
-      image_end (this, msg->id);
+      QByteArray data (msg->data, data_size);
+      image_data (this, msg->sequence, data);
       break;
     }
 
@@ -465,13 +508,20 @@ void DnDClient::handle_message (const DnDMessageHeader* header, quint64 size)
       ping_pong_record (this, msg->player_uuid, msg->delay);
       break;
     }
+
+    case DND_IMAGE_QUERY: {
+      const DnDImageQuery* msg = (DnDImageQuery*)header;
+      ImageId image_id (msg->image_id, sizeof (msg->image_id));
+      image_query (this, image_id);
+      break;
+    }
   }
 }
 
-void DnDClient::send_message (void* msg, quint64 size)
+void DnDClient::send_message (void* msg, quint64 size,
+                              MessagePriority priority)
 {
   Buffer* msg_buff = NET_BUFFER_POOL.alloc (sizeof (NetworkHeader) + size);
-  msg_buff->setParent (this);
   NetworkHeader hdr;
 
   hdr.sync = SYNC_FIELD;
@@ -480,8 +530,25 @@ void DnDClient::send_message (void* msg, quint64 size)
   msg_buff->fill (&hdr, sizeof (hdr));
   msg_buff->fill (msg, size);
 
-  if (_send_queue.size () == 0)
-    write ((char*)msg_buff->get_data (), msg_buff->get_filled_size ());
+  WLOCK ();
 
-  _send_queue.enqueue (msg_buff);
+  if (!_cur_send_buff) {
+    write_data (msg_buff->get_data (), msg_buff->get_filled_size ());
+    _cur_send_buff = msg_buff;
+  }
+  else
+    _send_queues[priority].enqueue (msg_buff);
+}
+
+void DnDClient::write_data (const void* buff, quint64 size)
+{
+#ifdef NETWORK_DEBUG
+  SHA1 sig;
+
+  sig.Input ((const char*)buff, size);
+
+  qDebug () << "Sending packet, sig:" << sha1_to_string (sig);
+#endif
+
+  write ((const char*)buff, size);
 }

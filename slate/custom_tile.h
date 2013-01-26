@@ -12,7 +12,7 @@ class QGraphicsTextItem;
 class CustomTile : public GameTile
 {
 public:
-  CustomTile (const TilePointer& tile, QGraphicsItem* parent = 0);
+  CustomTile (const TilePointer& tile, QGraphicsItem* parent = nullptr);
 
   virtual int get_width () const { return get_tile ()->get_width (); }
   virtual int get_height () const { return get_tile ()->get_height (); }

@@ -24,13 +24,23 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __COMMAND_HANDLER__
-#define __COMMAND_HANDLER__
+#include <QMetaType>
 
-class CommandHandler
+#include "util.h"
+#include "uuid.h"
+#include "command_manager.h"
+#include "player.h"
+#include "tile.h"
+#include "image_id.h"
+#include "image.h"
+
+void register_meta_types ()
 {
-public:
-  virtual ~CommandHandler () = 0;
-};
-
-#endif /* __COMMAND_HANDLER__ */
+  qRegisterMetaType<Uuid> ("Uuid");
+  qRegisterMetaType<CommandMarshalReceiver::InfoType> (
+    "CommandMarshalReceiver::InfoType");
+  qRegisterMetaType<PlayerPointer> ("PlayerPointer");
+  qRegisterMetaType<TilePointer> ("TilePointer");
+  qRegisterMetaType<ImageId> ("ImageId");
+  qRegisterMetaType<ImagePointer> ("ImagePointer");
+}

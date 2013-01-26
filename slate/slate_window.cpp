@@ -1,9 +1,9 @@
-/* Copyright (c) 2012, Dustin Mitchell dmmitche <at> gmail <dot> com
+/* Copyright (c) 2013, Dustin Mitchell dmmitche <at> gmail <dot> com
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * - Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
  *
@@ -34,7 +34,7 @@
 #include <QGridLayout>
 #include <QFileDialog>
 #include <QMessageBox>
-#include <QDir>
+#include <QThread>
 #include <QDebug>
 
 #include "slate_window.h"
@@ -117,7 +117,11 @@ SlateWindow::SlateWindow ()
 
   setCentralWidget (main_frame);
 
+  _controller_thread = new QThread (this);
+  _controller_thread->start ();
+
   _controller = new DnDController;
+  _controller->moveToThread (_controller_thread);
 
   connect (_controller, SIGNAL (server_connected ()),
            SLOT (server_connected ()));
@@ -134,14 +138,21 @@ SlateWindow::SlateWindow ()
                           const QString&)),
     SLOT (chat_message (const PlayerPointer&, const PlayerPointer&,
                         const QString&)));
-  connect (_controller, SIGNAL (map_updated (const ImageDataPointer&)),
-           SLOT (map_updated (const ImageDataPointer&)));
+  connect (_controller,
+           SIGNAL (map_changed (const ImagePointer&)),
+           SLOT (map_changed (const ImagePointer&)));
   connect (_controller, SIGNAL (tile_added (const TilePointer&)),
            _board, SLOT (add_tile (const TilePointer&)));
   connect (_controller, SIGNAL (tile_moved (const TilePointer&)),
            _board, SLOT (update_tile (const TilePointer&)));
   connect (_controller, SIGNAL (tile_deleted (const TilePointer&)),
            _board, SLOT (delete_tile (const TilePointer&)));
+}
+
+SlateWindow::~SlateWindow ()
+{
+  _controller_thread->quit ();
+  _controller_thread->wait ();
 }
 
 void SlateWindow::open_triggered (bool)
@@ -151,9 +162,9 @@ void SlateWindow::open_triggered (bool)
 
   if (f_diag.exec ()) {
     QStringList selected_files = f_diag.selectedFiles ();
-    QStringList::iterator file = selected_files.begin ();
+    QString file = *(selected_files.begin ());
 
-    _controller->set_map (*file);
+    _controller->load_map (file);
   }
 }
 
@@ -297,16 +308,7 @@ void SlateWindow::chat_message (const PlayerPointer& sender,
   _chat_widget->insert_message (who, message, chat_widget_flags);
 }
 
-void SlateWindow::map_updated (const ImageDataPointer& data)
+void SlateWindow::map_changed (const ImagePointer& image)
 {
-  QImage* map_image = new QImage;
-  map_image->loadFromData (*data);
-  _board->set_map (map_image);
+  _board->set_map (image);
 }
-
-#if 0
-void SlateWindow::delete_tile (DnDClient* client, Uuid tile_uuid)
-{
-  _board->delete_tile (tile_uuid);
-}
-#endif

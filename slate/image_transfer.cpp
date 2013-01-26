@@ -24,13 +24,35 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __COMMAND_HANDLER__
-#define __COMMAND_HANDLER__
+#include <QByteArray>
 
-class CommandHandler
+#include "image_transfer.h"
+#include "dnd_messages.h"
+#include "dnd_client.h"
+
+ImageTransfer::ImageTransfer (DnDClient* client, QObject* parent)
+  : QObject (parent)
 {
-public:
-  virtual ~CommandHandler () = 0;
-};
+  connect (client, SIGNAL (image_begin (DnDClient*, quint64)),
+    SLOT (image_begin (DnDClient*, quint64)));
+  connect (client,
+    SIGNAL (image_data (DnDClient*, quint32, const QByteArray&)),
+    SLOT (image_data (DnDClient*, quint32, const QByteArray&)));
+}
 
-#endif /* __COMMAND_HANDLER__ */
+void ImageTransfer::image_begin (DnDClient*, quint64 total_size)
+{
+  _data.reserve (total_size);
+  _total_size = total_size;
+}
+
+void ImageTransfer::image_data (DnDClient* client, quint32 sequence,
+                                const QByteArray& data)
+{
+  quint32 offset = sequence * DND_IMAGE_MAX_CHUNK_SIZE;
+
+  _data.replace (offset, data.size (), data);
+
+  if (offset + data.size () >= _total_size)
+    complete (_data);
+}

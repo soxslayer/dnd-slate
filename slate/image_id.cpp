@@ -24,13 +24,48 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __COMMAND_HANDLER__
-#define __COMMAND_HANDLER__
+#include <cstring>
 
-class CommandHandler
+#include "image_id.h"
+#include "dnd_messages.h"
+
+ImageId::ImageId ()
 {
-public:
-  virtual ~CommandHandler () = 0;
-};
+}
 
-#endif /* __COMMAND_HANDLER__ */
+ImageId::ImageId (const char* id, int size)
+{
+  if (size == -1)
+    size = strlen (id);
+  else if (size > DND_IMAGE_ID_LEN)
+    size = DND_IMAGE_ID_LEN;
+
+  _id = QString::fromAscii (id, size);;
+  _id = _id.leftJustified (DND_IMAGE_ID_LEN, (QChar)'0', true);
+}
+
+ImageId::ImageId (const ImageId& id)
+  : _id (id._id)
+{
+}
+
+ImageId::ImageId (const QString& id)
+  : _id (id)
+{
+}
+
+const ImageId& ImageId::operator= (const ImageId& id)
+{
+  if (&id != this)
+    _id = id._id;
+
+  return *this;
+}
+
+const ImageId& ImageId::operator= (const QString& id)
+{
+  _id = id;
+  _id.leftJustified (DND_IMAGE_ID_LEN, (QChar)'0', true);
+
+  return *this;
+}

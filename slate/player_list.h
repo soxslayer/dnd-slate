@@ -1,9 +1,9 @@
-/* Copyright (c) 2012, Dustin Mitchell dmmitche <at> gmail <dot> com
+/* Copyright (c) 2013, Dustin Mitchell dmmitche <at> gmail <dot> com
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * - Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
  *
@@ -44,16 +44,11 @@ class PlayerList : public QListView
   Q_OBJECT
 
 public:
-  PlayerList (QWidget* parent = 0);
+  PlayerList (QWidget* parent = nullptr);
 
   void add_player (const PlayerPointer& player);
   void remove_player (const PlayerPointer& player);
   void clear ();
-#if 0
-  QString get_player_name (Uuid) const;
-  Uuid get_player_uuid (const QString& name) const;
-  QString get_my_name () const { return get_player_name (_my_uuid); }
-#endif
 
 signals:
   void player_activated (const PlayerPointer& player);
