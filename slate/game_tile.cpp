@@ -1,20 +1,27 @@
 #include <QColor>
 
 #include "game_tile.h"
+#include "game_board.h"
 
-GameTile::GameTile (Uuid uuid,  QGraphicsItem* parent)
+GameTile::GameTile (const TilePointer& tile,  QGraphicsItem* parent)
   : QGraphicsPixmapItem (parent),
-    _uuid (uuid),
+    _tile (tile),
     _selected (false)
 {
-  set_x (0);
-  set_y (0);
+  update ();
+}
+
+void GameTile::update ()
+{
+  setX (_tile->get_x () * (GameBoard::TILE_WIDTH + 1) + 1);
+  setY (_tile->get_y () * (GameBoard::TILE_HEIGHT + 1) + 1);
+  QGraphicsItem::update ();
 }
 
 void GameTile::set_selected (bool selected)
 {
   _selected = selected;
-  update ();
+  QGraphicsItem::update ();
 }
 
 void GameTile::paint (QPainter* painter,

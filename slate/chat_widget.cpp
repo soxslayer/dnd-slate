@@ -84,28 +84,28 @@ void ChatWidget::insert_status (const QString& status)
   insert_string (" *", _status_colour, false);
 }
 
-void ChatWidget::insert_message (const QString& message, const QString& who,
-                                 int flags)
+void ChatWidget::insert_message (const PlayerPointer& who,
+                                 const QString& message, int flags)
 {
   if (flags & ChatFromMe && flags & ChatWhisper) {
     insert_string ("*** TO ", _whisper_colour);
-    insert_string (who, _whisper_colour, false);
+    insert_string (who->get_name (), _whisper_colour, false);
     insert_string (": ", _whisper_colour, false);
     insert_string (message, _whisper_colour, false);
   }
-  else if (flags & ChatFromMe) {
-    insert_string (who, _my_message_colour);
+  else if (who->get_me ()) {
+    insert_string (who->get_name (), _my_message_colour);
     insert_string (": ", _my_message_colour, false);
     insert_string (message, _text_colour, false);
   }
   else if (flags & ChatWhisper) {
     insert_string ("*** ", _whisper_colour);
-    insert_string (who, _whisper_colour, false);
+    insert_string (who->get_name (), _whisper_colour, false);
     insert_string (": ", _whisper_colour, false);
     insert_string (message, _whisper_colour, false);
   }
   else {
-    insert_string (who, _other_message_colour);
+    insert_string (who->get_name (), _other_message_colour);
     insert_string (": ", _other_message_colour, false);
     insert_string (message, _text_colour, false);
   }

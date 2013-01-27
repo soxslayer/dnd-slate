@@ -4,6 +4,7 @@
 #include <QString>
 
 #include "game_tile.h"
+#include "tile.h"
 
 class QPixmap;
 class QGraphicsTextItem;
@@ -11,16 +12,13 @@ class QGraphicsTextItem;
 class CustomTile : public GameTile
 {
 public:
-  CustomTile (Uuid uuid, int width, int height, const QString& text,
-              QGraphicsItem* parent = 0);
+  CustomTile (const TilePointer& tile, QGraphicsItem* parent = 0);
 
-  virtual int get_width () const { return _width; }
-  virtual int get_height () const { return _height; }
+  virtual int get_width () const { return get_tile ()->get_width (); }
+  virtual int get_height () const { return get_tile ()->get_height (); }
 
 private:
   QPixmap* _bg_pixmap;
-  int _width;
-  int _height;
   QGraphicsTextItem* _text;
 };
 

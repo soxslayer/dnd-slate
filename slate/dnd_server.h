@@ -33,6 +33,7 @@
 #include <QTime>
 
 #include "uuid.h"
+#include "player.h"
 
 class DnDClient;
 class Tile;
@@ -67,13 +68,11 @@ private slots:
 private:
   struct ClientRecord
   {
-    ClientRecord () : client (0), dm (false), active (false) { }
+    ClientRecord () : client (0), active (false) { }
 
     DnDClient* client;
-    Uuid uuid;
-    QString name;
+    Player player;
     QTime ping_pong;
-    bool dm;
     bool active;
   };
 
@@ -84,17 +83,7 @@ private:
   QByteArray _map_data;
   ClientMap _clients;
   TileMap _tiles;
-  Uuid _dm_uuid;
-
-  template<typename F, typename... ARGS>
-  void for_each_record (F func, ARGS... args)
-  {
-    ClientMap::iterator beg = _clients.begin ();
-    ClientMap::iterator end = _clients.end ();
-
-    for (; beg != end; ++beg)
-      func ((*beg), args...);
-  }
+  Player* _dm;
 
   void send_map (DnDClient* client);
 };

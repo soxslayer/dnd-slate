@@ -82,8 +82,8 @@ private:
   CommandMarshalReceiver _marshal_receiver;
 
   CommandManager () { }
-  CommandManager (const CommandManager& c) { }
-  const CommandManager& operator= (const CommandManager& c) { return *this; }
+  CommandManager (const CommandManager&) { }
+  const CommandManager& operator= (const CommandManager&) { return *this; }
 };
 
 #endif /* __COMMAND_MANAGER__ */

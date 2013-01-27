@@ -35,12 +35,10 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QDir>
+#include <QDebug>
 
 #include "slate_window.h"
 #include "connect_dialog.h"
-#include "dnd_server.h"
-#include "dnd_client.h"
-#include "dnd_messages.h"
 #include "chat_widget.h"
 #include "player_list.h"
 #include "game_board.h"
@@ -54,8 +52,6 @@
 #include "command_manager.h"
 
 SlateWindow::SlateWindow ()
-  : _server (0), _connect_command (this, &SlateWindow::connect_command),
-    _disconnect_command (this, &SlateWindow::disconnect_command)
 {
   QMenuBar* menu_bar = menuBar ();
 
@@ -64,22 +60,22 @@ SlateWindow::SlateWindow ()
   _open_action = menu->addAction ("&Open");
   _open_action->setEnabled (false);
   connect (_open_action, SIGNAL (triggered (bool)),
-           this, SLOT (open_triggered (bool)));
+           SLOT (open_triggered (bool)));
 
   QAction* action = menu->addAction ("&Quit");
   connect (action, SIGNAL (triggered (bool)),
-           this, SLOT (quit_triggered (bool)));
+           SLOT (quit_triggered (bool)));
 
   menu = menu_bar->addMenu ("&Connection");
 
   _connect_action = menu->addAction ("&Connect");
   connect (_connect_action, SIGNAL (triggered (bool)),
-           this, SLOT (connect_triggered (bool)));
+           SLOT (connect_triggered (bool)));
 
   _disconnect_action = menu->addAction ("&Disconnect");
   _disconnect_action->setEnabled (false);
   connect (_disconnect_action, SIGNAL (triggered (bool)),
-           this, SLOT (disconnect_triggered (bool)));
+           SLOT (disconnect_triggered (bool)));
 
   _status_label = new QLabel ("Disconnected", statusBar ());
   statusBar ()->insertWidget (0, _status_label);
@@ -89,12 +85,12 @@ SlateWindow::SlateWindow ()
   _add_tile_action = menu->addAction ("&Add Tile");
   _add_tile_action->setEnabled (false);
   connect (_add_tile_action, SIGNAL (triggered (bool)),
-           this, SLOT (add_tile_triggered (bool)));
+           SLOT (add_tile_triggered (bool)));
 
   _delete_tile_action = menu->addAction ("&Delete Tile");
   _delete_tile_action->setEnabled (false);
   connect (_delete_tile_action, SIGNAL (triggered (bool)),
-           this, SLOT (delete_tile_triggered (bool)));
+           SLOT (delete_tile_triggered (bool)));
 
   QFrame* main_frame = new QFrame (this);
   main_frame->setFrameStyle (0);
@@ -107,58 +103,48 @@ SlateWindow::SlateWindow ()
   main_layout->addWidget (_chat_widget, 1, 0, 1, 2);
   connect (_chat_widget,
            SIGNAL (send_message (const QString&, const QString&)),
-           this, SLOT (send_message (const QString&, const QString&)));
+           SLOT (send_message (const QString&, const QString&)));
 
   _player_list = new PlayerList (this);
   main_layout->addWidget (_player_list, 0, 1);
-  connect (_player_list, SIGNAL (player_activated (Uuid)),
-           this, SLOT (player_activated (Uuid)));
+  connect (_player_list, SIGNAL (player_activated (const PlayerPointer&)),
+           SLOT (player_activated (const PlayerPointer&)));
 
   _board = new GameBoard (this);
   main_layout->addWidget (_board, 0, 0);
-  connect (_board, SIGNAL (tile_moved (Uuid, int, int)),
-           this, SLOT (tile_moved (Uuid, int, int)));
+  connect (_board, SIGNAL (tile_moved (const TilePointer&, int, int)),
+           SLOT (tile_moved (const TilePointer&, int, int)));
 
   setCentralWidget (main_frame);
 
-  CommandManager::add_command ("connect", &_connect_command);
-  CommandManager::add_command ("disconnect", &_disconnect_command);
+  _controller = new DnDController;
+
+  connect (_controller, SIGNAL (server_connected ()),
+           SLOT (server_connected ()));
+  connect (_controller, SIGNAL (server_disconnected ()),
+           SLOT (server_disconnected ()));
+  connect (_controller, SIGNAL (player_connected (const PlayerPointer&)),
+           SLOT (player_connected (const PlayerPointer&)));
+  connect (_controller, SIGNAL (player_disconnected (const PlayerPointer&)),
+           SLOT (player_disconnected (const PlayerPointer&)));
+  connect (_controller, SIGNAL (server_message (const QString&, int, bool)),
+           SLOT (server_message (const QString&, int, bool)));
+  connect (_controller,
+    SIGNAL (chat_message (const PlayerPointer&, const PlayerPointer&,
+                          const QString&)),
+    SLOT (chat_message (const PlayerPointer&, const PlayerPointer&,
+                        const QString&)));
+  connect (_controller, SIGNAL (map_updated (const ImageDataPointer&)),
+           SLOT (map_updated (const ImageDataPointer&)));
+  connect (_controller, SIGNAL (tile_added (const TilePointer&)),
+           _board, SLOT (add_tile (const TilePointer&)));
+  connect (_controller, SIGNAL (tile_moved (const TilePointer&)),
+           _board, SLOT (update_tile (const TilePointer&)));
+  connect (_controller, SIGNAL (tile_deleted (const TilePointer&)),
+           _board, SLOT (delete_tile (const TilePointer&)));
 }
 
-bool SlateWindow::connect_command (const CommandParamList& params)
-{
-  QString host;
-  quint16 port;
-  QString name;
-
-  if (params.verify_signature ("sis")) {
-    host = params.get_param (0)->get_str ().c_str ();
-    port = (quint16)params.get_param (1)->get_int ();
-    name = params.get_param (2)->get_str ().c_str ();
-  }
-  else if (params.verify_signature ("is")) {
-    port = (quint16)params.get_param (0)->get_int ();
-    name = params.get_param (1)->get_str ().c_str ();
-  }
-  else {
-    qDebug () << "Invalid connect params";
-    return false;
-  }
-
-  connect_client (host, port, name);
-
-  return true;
-}
-
-bool SlateWindow::disconnect_command (const CommandParamList& params)
-{
-  disconnect_client ();
-  delete _client;
-
-  return true;
-}
-
-void SlateWindow::open_triggered (bool checked)
+void SlateWindow::open_triggered (bool)
 {
   QFileDialog f_diag (this);
   f_diag.setFileMode (QFileDialog::ExistingFile);
@@ -167,252 +153,89 @@ void SlateWindow::open_triggered (bool checked)
     QStringList selected_files = f_diag.selectedFiles ();
     QStringList::iterator file = selected_files.begin ();
 
-    _client->load_image (*file);
+    _controller->set_map (*file);
   }
 }
 
-void SlateWindow::quit_triggered (bool checked)
+void SlateWindow::quit_triggered (bool)
 {
   QCoreApplication::quit ();
 }
 
-void SlateWindow::connect_triggered (bool checked)
+void SlateWindow::connect_triggered (bool)
 {
   ConnectDialog diag (this);
 
   if (diag.exec ()) {
-    connect_client (diag.get_host (), diag.get_port ().toShort (),
-                    diag.get_name ());
+    _controller->connect (diag.get_name (), diag.get_host (),
+                          diag.get_port ().toShort ());
   }
 }
 
-void SlateWindow::disconnect_triggered (bool checked)
+void SlateWindow::disconnect_triggered (bool)
 {
-  disconnect_client ();
-  delete _client;
+  _controller->disconnect ();
 }
 
-void SlateWindow::add_tile_triggered (bool checked)
+void SlateWindow::add_tile_triggered (bool)
 {
   TileSelectDialog diag (this);
 
   if (diag.exec ()) {
     switch (diag.get_selection_type ()) {
       case TileSelectDialog::SelectLoad:
-        _client->add_tile (_player_list->get_my_uuid (), Tile::TILE_IMAGE, 0,
-                           0, 0, 0, diag.get_filename ());
+        _controller->add_tile (Tile::TILE_IMAGE, 0, 0, 0, 0,
+                               diag.get_filename ());
         break;
 
       case TileSelectDialog::SelectCustom:
-        _client->add_tile (_player_list->get_my_uuid (), Tile::TILE_CUSTOM, 0,
-                           0, diag.get_width (), diag.get_height (),
-                           diag.get_text ());
+        _controller->add_tile (Tile::TILE_CUSTOM, 0, 0, diag.get_width (),
+                               diag.get_height (), diag.get_text ());
         break;
     }
   }
 }
 
-void SlateWindow::delete_tile_triggered (bool checked)
+void SlateWindow::player_activated (const PlayerPointer& player)
 {
-  Uuid selected_uuid = _board->get_selected_uuid ();
-
-  if (selected_uuid != UuidManager::UUID_INVALID)
-    _client->delete_tile (selected_uuid);
-}
-
-void SlateWindow::server_connected ()
-{
-  _client->comm_proto_req ();
-}
-
-void SlateWindow::server_disconnected ()
-{
-  _chat_widget->insert_status ("Server closed");
-  disconnect_client ();
-  _client->deleteLater ();
-}
-
-void SlateWindow::send_message (const QString& who, const QString& message)
-{
-  Uuid src = _player_list->get_my_uuid ();
-  Uuid dst;
-  int flags = 0;
-
-  if (!who.isEmpty ())
-    dst = _player_list->get_player_uuid (who);
-  else
-    flags |= CHAT_BROADCAST;
-
-  _client->chat_message (src, dst, message, flags);
-}
-
-void SlateWindow::comm_proto_resp (DnDClient* client, quint16 major,
-                                   quint16 minor)
-{
-  if (major != COMM_PROTO_MAJOR || minor != COMM_PROTO_MINOR) {
-    QMessageBox::critical (this, "Error",
-      "Incompatible communication protocol with server");
-
-    disconnect_client ();
-  }
-  else {
-    _client->user_add_req (_name);
-
-    _open_action->setEnabled (true);
-    _connect_action->setEnabled (false);
-    _disconnect_action->setEnabled (true);
-    _add_tile_action->setEnabled (true);
-    _delete_tile_action->setEnabled (true);
-    _chat_widget->setEnabled (true);
-
-    _status_label->setText ("Connected");
-  }
-}
-
-void SlateWindow::server_message (DnDClient* client, const QString& msg,
-                                  int flags)
-{
-  if (flags & MESSAGE_ERROR)
-    QMessageBox::critical (this, "Error", msg);
-  else if (flags & MESSAGE_WARN)
-    QMessageBox::warning (this, "Warning", msg);
-  else if (flags & MESSAGE_INFO)
-    QMessageBox::information (this, "Warning", msg);
-}
-
-void SlateWindow::user_add_resp (DnDClient* client, Uuid uuid,
-                                 const QString& name)
-{
-  QString status = name;
-  status += " connected";
-
-  _player_list->add_player (uuid, name);
-  _chat_widget->insert_status (status);
-}
-
-void SlateWindow::user_del (DnDClient* client, Uuid uuid)
-{
-  QString status = _player_list->get_player_name (uuid);
-  status += " disconnected";
-
-  _player_list->remove_player (uuid);
-  _chat_widget->insert_status (status);
-}
-
-void SlateWindow::chat_message (DnDClient* client, Uuid src_uuid,
-                                Uuid dst_uuid, const QString& message,
-                                int flags)
-{
-  int chat_widget_flags = 0;
-  QString who;
-
-  if (!(flags & CHAT_BROADCAST))
-    chat_widget_flags |= ChatWidget::ChatWhisper;
-
-  if (src_uuid == _player_list->get_my_uuid ())
-    chat_widget_flags |= ChatWidget::ChatFromMe;
-
-  if (chat_widget_flags & ChatWidget::ChatWhisper
-      && chat_widget_flags & ChatWidget::ChatFromMe)
-    who = _player_list->get_player_name (dst_uuid);
-  else
-    who = _player_list->get_player_name (src_uuid);
-
-  _chat_widget->insert_message (message, who, chat_widget_flags);
-}
-
-void SlateWindow::map_begin (DnDClient* client, quint32 size, quint32 id)
-{
-  _map_transfer_id = id;
-  _map_buff = new QByteArray (size, 0);
-}
-
-void SlateWindow::map_data (DnDClient* client, quint32 id, quint32 sequence,
-                            const uchar* data, quint64 size)
-{
-  if (id != _map_transfer_id)
-    return;
-
-  _map_buff->insert (sequence * DND_IMAGE_MAX_CHUNK_SIZE, (char*)data, size);
-}
-
-void SlateWindow::map_end (DnDClient* client, quint32 id)
-{
-  if (id != _map_transfer_id)
-    return;
-
-  QImage* bg_image = new QImage;
-  bg_image->loadFromData (*_map_buff);
-  _board->set_map (bg_image);
-
-  delete _map_buff;
-}
-
-void SlateWindow::add_tile (DnDClient* client, Uuid tile_uuid, quint8 type,
-                            quint16 x, quint16 y, quint16 w, quint16 h,
-                            const QString& text)
-{
-  GameTile* tile;
-
-  switch (type) {
-    case Tile::TILE_CUSTOM: {
-      tile = new CustomTile (tile_uuid, w, h, text);
-
-      break;
-    }
-
-    case Tile::TILE_IMAGE: {
-      QString path = text;
-      path.prepend ("image:");
-      QDir tile_path (path);
-
-      tile = new ImageTile (tile_uuid, tile_path.absolutePath ());
-
-      break;
-    }
-  }
-
-  _board->add_tile (tile);
-  tile->set_x (x);
-  tile->set_y (y);
-}
-
-void SlateWindow::move_tile (DnDClient* client, Uuid tile_uuid,
-                             quint16 x, quint16 y)
-{
-  _board->move_tile (tile_uuid, x, y);
-}
-
-void SlateWindow::delete_tile (DnDClient* client, Uuid tile_uuid)
-{
-  _board->delete_tile (tile_uuid);
-}
-
-void SlateWindow::ping_pong (DnDClient* client)
-{
-  _client->ping_pong ();
-}
-
-void SlateWindow::ping_pong_record (DnDClient* client, Uuid uuid,
-                                    quint32 delay)
-{
-  qDebug () << "PingPongRecord " << uuid << ' ' << delay;
-}
-
-void SlateWindow::player_activated (Uuid uuid)
-{
-  QString n_entry = _player_list->get_player_name (uuid);
+  QString n_entry = player->get_name ();
   n_entry.prepend ("/w ");
   n_entry.append (" ");
   _chat_widget->set_entry (n_entry);
 }
 
-void SlateWindow::tile_moved (Uuid tile_uuid, int x, int y)
+void SlateWindow::tile_moved (const TilePointer& tile, int x, int y)
 {
-  _client->move_tile (tile_uuid, x, y);
+  _controller->move_tile (tile, x, y);
 }
 
-void SlateWindow::disconnect_client ()
+void SlateWindow::delete_tile_triggered (bool)
+{
+  TilePointer tile = _board->get_selected ();
+
+  if (tile)
+    _controller->delete_tile (tile);
+}
+
+void SlateWindow::send_message (const QString& who, const QString& message)
+{
+  PlayerPointer who_ptr = _controller->lookup_player (who);
+  _controller->chat_message (who_ptr, message);
+}
+
+void SlateWindow::server_connected ()
+{
+  _open_action->setEnabled (true);
+  _connect_action->setEnabled (false);
+  _disconnect_action->setEnabled (true);
+  _add_tile_action->setEnabled (true);
+  _delete_tile_action->setEnabled (true);
+  _chat_widget->setEnabled (true);
+
+  _status_label->setText ("Connected");
+}
+
+void SlateWindow::server_disconnected ()
 {
   _open_action->setEnabled (false);
   _connect_action->setEnabled (true);
@@ -423,66 +246,67 @@ void SlateWindow::disconnect_client ()
   _player_list->clear ();
   _board->clear_map ();
 
-  disconnect (_client, 0, 0, 0);
-
-  if (_server)
-    delete _server;
-
   _status_label->setText ("Disconnected");
+  _chat_widget->insert_status ("Server closed");
 }
 
-bool SlateWindow::connect_client (const QString& host, quint16 port,
-                                  const QString& name)
+void SlateWindow::player_connected (const PlayerPointer& player)
 {
-  QString my_host = host;
-  _name = name;
+  QString status = player->get_name ();
+  status += " connected";
 
-  if (host.isEmpty ()) {
-    _server = new DnDServer (port);
-    my_host = "localhost";
+  _player_list->add_player (player);
+  _chat_widget->insert_status (status);
+}
+
+void SlateWindow::player_disconnected (const PlayerPointer& player)
+{
+  QString status = player->get_name ();
+  status += " disconnected";
+
+  _player_list->remove_player (player);
+  _chat_widget->insert_status (status);
+}
+
+void SlateWindow::server_message (const QString& msg, int level, bool)
+{
+  if (level == DnDController::MessageError)
+    QMessageBox::critical (this, "Error", msg);
+  else if (level == DnDController::MessageWarn)
+    QMessageBox::warning (this, "Warning", msg);
+  else if (level == DnDController::MessageInfo)
+    QMessageBox::information (this, "Info", msg);
+}
+
+void SlateWindow::chat_message (const PlayerPointer& sender,
+                                const PlayerPointer& receiver,
+                                const QString& message)
+{
+  int chat_widget_flags = 0;
+  PlayerPointer who = sender;
+
+  if (sender && receiver) {
+    chat_widget_flags |= ChatWidget::ChatWhisper;
+
+    if (sender->get_me ()) {
+      who = receiver;
+      chat_widget_flags |= ChatWidget::ChatFromMe;
+    }
   }
 
-  _client = new DnDClient (my_host, port);
-
-  connect (_client, SIGNAL (comm_proto_resp (DnDClient*, quint16, quint16)),
-           this, SLOT (comm_proto_resp (DnDClient*, quint16, quint16)));
-  connect (_client, SIGNAL (server_message (DnDClient*, const QString&,
-                            int)),
-           this, SLOT (server_message (DnDClient*, const QString&, int)));
-  connect (_client, SIGNAL (user_add_resp (DnDClient*, Uuid,
-                            const QString&)),
-           this, SLOT (user_add_resp (DnDClient*, Uuid,
-                       const QString&)));
-  connect (_client, SIGNAL (user_del (DnDClient*, Uuid)),
-           this, SLOT (user_del (DnDClient*, Uuid)));
-  connect (_client,
-    SIGNAL (chat_message (DnDClient*, Uuid, Uuid, const QString&, int)),
-    this,
-    SLOT (chat_message (DnDClient*, Uuid, Uuid, const QString&, int)));
-  connect (_client, SIGNAL (image_begin (DnDClient*, quint32, quint32)),
-           this, SLOT (map_begin (DnDClient*, quint32, quint32)));
-  connect (_client, SIGNAL (image_data (DnDClient*, quint32, quint32,
-                            const uchar*, quint64)),
-           this, SLOT (map_data (DnDClient*, quint32, quint32,
-                       const uchar*, quint64)));
-  connect (_client, SIGNAL (image_end (DnDClient*, quint32)),
-           this, SLOT (map_end (DnDClient*, quint32)));
-  connect (_client, SIGNAL (add_tile (DnDClient*, Uuid, quint8, quint16,
-                            quint16, quint16, quint16, const QString&)),
-           this, SLOT (add_tile (DnDClient*, Uuid, quint8, quint16,
-                       quint16, quint16, quint16, const QString&)));
-  connect (_client, SIGNAL (move_tile (DnDClient*, Uuid, quint16, quint16)),
-           this, SLOT (move_tile (DnDClient*, Uuid, quint16, quint16)));
-  connect (_client, SIGNAL (delete_tile (DnDClient*, Uuid)),
-           this, SLOT (delete_tile (DnDClient*, Uuid)));
-  connect (_client, SIGNAL (ping_pong (DnDClient*)),
-           this, SLOT (ping_pong (DnDClient*)));
-  connect (_client, SIGNAL (ping_pong_record (DnDClient*, Uuid, quint32)),
-           this, SLOT (ping_pong_record (DnDClient*, Uuid, quint32)));
-  connect (_client, SIGNAL (connected ()),
-           this, SLOT (server_connected ()));
-  connect (_client, SIGNAL (disconnected ()),
-           this, SLOT (server_disconnected ()));
-
-  return true;
+  _chat_widget->insert_message (who, message, chat_widget_flags);
 }
+
+void SlateWindow::map_updated (const ImageDataPointer& data)
+{
+  QImage* map_image = new QImage;
+  map_image->loadFromData (*data);
+  _board->set_map (map_image);
+}
+
+#if 0
+void SlateWindow::delete_tile (DnDClient* client, Uuid tile_uuid)
+{
+  _board->delete_tile (tile_uuid);
+}
+#endif

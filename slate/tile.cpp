@@ -1,9 +1,34 @@
+/* Copyright (c) 2012, Dustin Mitchell dmmitche <at> gmail <dot> com
+ * All rights reserved.
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * - Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * - Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the document
+ *   and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ */
+
 #include "tile.h"
 
 Tile::Tile (Uuid uuid, const QString& text, TileType type,  int x, int y,
-            int w, int h, QObject* parent)
-  : QObject (parent),
-    _text (text),
+            int w, int h)
+ :  _text (text),
     _uuid (uuid),
     _type (type),
     _x (x),
@@ -15,7 +40,7 @@ Tile::Tile (Uuid uuid, const QString& text, TileType type,  int x, int y,
 
 void Tile::add_perm (Uuid uuid, Permission perm)
 {
-  QMap<Uuid, int>::iterator pos = _perms.find (uuid);
+  auto pos = _perms.find (uuid);
 
   if (pos == _perms.end ()) {
     _perms.insert (uuid, perm);
@@ -27,7 +52,7 @@ void Tile::add_perm (Uuid uuid, Permission perm)
 
 void Tile::rm_perm (Uuid uuid, Permission perm)
 {
-  QMap<Uuid, int>::iterator pos = _perms.find (uuid);
+  auto pos = _perms.find (uuid);
 
   if (pos != _perms.end ())
     *pos &= ~perm;
@@ -35,10 +60,16 @@ void Tile::rm_perm (Uuid uuid, Permission perm)
 
 bool Tile::get_perm (Uuid uuid, Permission perm) const
 {
-  QMap<Uuid, int>::const_iterator pos = _perms.find (uuid);
+  auto pos = _perms.find (uuid);
 
   if (pos == _perms.end ())
     return false;
 
   return *pos & perm;
+}
+
+void Tile::move (int x, int y)
+{
+  _x = x;
+  _y = y;
 }

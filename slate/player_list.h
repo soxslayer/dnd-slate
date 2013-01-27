@@ -31,6 +31,7 @@
 #include <QMap>
 
 #include "uuid.h"
+#include "player.h"
 
 class QString;
 class QWidget;
@@ -45,24 +46,23 @@ class PlayerList : public QListView
 public:
   PlayerList (QWidget* parent = 0);
 
-  void add_player (Uuid uuid, const QString& name);
-  void remove_player (Uuid uuid);
+  void add_player (const PlayerPointer& player);
+  void remove_player (const PlayerPointer& player);
   void clear ();
+#if 0
   QString get_player_name (Uuid) const;
   Uuid get_player_uuid (const QString& name) const;
   QString get_my_name () const { return get_player_name (_my_uuid); }
-  Uuid get_my_uuid () const { return _my_uuid; }
+#endif
 
 signals:
-  void player_activated (Uuid uuid);
+  void player_activated (const PlayerPointer& player);
 
 protected slots:
   void item_double_clicked (const QModelIndex& index);
 
 private:
   QStandardItemModel* _model;
-  Uuid _my_uuid;
-  QMap<Uuid, QStandardItem*> _client_id_map;
 };
 
 #endif /* __PLAYER_LIST__ */

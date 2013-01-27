@@ -50,7 +50,8 @@ DnDServer::DnDServer (quint16 port)
 
 DnDServer::~DnDServer ()
 {
-  for_all(_clients, [] (ClientRecord* r) { delete r->client; delete r; });
+  for_all (_clients, [] (ClientRecord* r) { delete r->client; delete r; });
+  for_all (_tiles, [] (Tile* t) { delete t; });
 }
 
 void DnDServer::incomingConnection (int socketDescriptor)
@@ -86,7 +87,7 @@ void DnDServer::incomingConnection (int socketDescriptor)
   rec->client = client;
 
   if (_clients.isEmpty ())
-    rec->dm = true;
+    rec->player.set_dm ();
 
   _clients.insert (client, rec);
 }
@@ -98,7 +99,7 @@ void DnDServer::client_disconnected (DnDClient* client)
   _clients.erase (_clients.find (client));
 
   for_all (_clients, [] (ClientRecord* r, Uuid u) { r->client->user_del (u); },
-           dc_client->uuid);
+           dc_client->player.get_uuid ());
 }
 
 void DnDServer::client_comm_proto_req (DnDClient* client)
@@ -109,18 +110,21 @@ void DnDServer::client_comm_proto_req (DnDClient* client)
 void DnDServer::client_user_add_req (DnDClient* client, const QString& name)
 {
   ClientRecord* record = _clients[client];
-  record->uuid = _uuid_manager.get_uuid ();
-  record->name = name;
+  record->player.set_uuid (_uuid_manager.get_uuid ());
   record->active = true;
 
-  if (record->dm) {
-    record->name.prepend ("[DM]_");
-    _dm_uuid = record->uuid;
+  QString t_name = name;
+
+  if (record->player.get_dm ()) {
+    t_name.prepend ("[DM]_");
+    _dm = &record->player;
   }
 
-  record->name.replace (' ', '_');
+  t_name.replace (' ', '_');
+  record->player.set_name (t_name);
 
-  record->client->user_add_resp (record->uuid, record->name);
+  record->client->user_add_resp (record->player.get_uuid (),
+                                 record->player.get_name ());
 
   for_all (_clients,
            [&] (ClientRecord* r)
@@ -128,8 +132,10 @@ void DnDServer::client_user_add_req (DnDClient* client, const QString& name)
              if (!r->active || r->client == record->client)
                return;
 
-             r->client->user_add_resp (record->uuid, record->name);
-             record->client->user_add_resp (r->uuid, r->name);
+             r->client->user_add_resp (record->player.get_uuid (),
+                                       record->player.get_name ());
+             record->client->user_add_resp (r->player.get_uuid (),
+                                            r->player.get_name ());
            });
 
   send_map (record->client);
@@ -147,7 +153,7 @@ void DnDServer::client_user_add_req (DnDClient* client, const QString& name)
            });
 }
 
-void DnDServer::client_chat_message (DnDClient* client, Uuid src_uuid,
+void DnDServer::client_chat_message (DnDClient* client, Uuid,
                                      Uuid dst_uuid, const QString& message,
                                      int flags)
 {
@@ -159,10 +165,11 @@ void DnDServer::client_chat_message (DnDClient* client, Uuid src_uuid,
              if (!r->active)
                return;
 
-             if (flags & CHAT_BROADCAST || record->uuid == r->uuid
-                 || dst_uuid == r->uuid)
-               r->client->chat_message (record->uuid, dst_uuid, message,
-               flags);
+             if (flags & CHAT_BROADCAST
+                 || record->player.get_uuid () == r->player.get_uuid ()
+                 || dst_uuid == r->player.get_uuid ())
+               r->client->chat_message (record->player.get_uuid (), dst_uuid,
+                                        message, flags);
            });
 }
 
@@ -170,7 +177,7 @@ void DnDServer::client_load_image (DnDClient* client, const QString& file_name)
 {
   ClientRecord* record = _clients[client];
 
-  if (!record->dm) {
+  if (!record->player.get_dm ()) {
     record->client->server_message ("Only the DM can load a map",
                                     MESSAGE_ERROR);
     return;
@@ -194,20 +201,19 @@ void DnDServer::client_load_image (DnDClient* client, const QString& file_name)
            });
 }
 
-void DnDServer::client_add_tile (DnDClient* client, Uuid tile_uuid,
-                                 quint8 type, quint16 x, quint16 y, quint16 w,
-                                 quint16 h, const QString& text)
+void DnDServer::client_add_tile (DnDClient* client, Uuid, quint8 type,
+                                 quint16 x, quint16 y, quint16 w, quint16 h,
+                                 const QString& text)
 {
   ClientRecord* record = _clients[client];
 
   Tile* tile = new Tile (_uuid_manager.get_uuid (), text,
-                         static_cast<Tile::TileType> (type), x, y, w, h,
-                         this);
+                         static_cast<Tile::TileType> (type), x, y, w, h);
 
-  if (!record->dm)
-    tile->add_perm (record->uuid, Tile::PERM_ALL);
+  if (!record->player.get_dm ())
+    tile->add_perm (record->player.get_uuid (), Tile::PERM_ALL);
 
-  tile->add_perm (_dm_uuid, Tile::PERM_ALL);
+  tile->add_perm (_dm->get_uuid (), Tile::PERM_ALL);
 
   for_all (_clients,
            [&] (ClientRecord* r)
@@ -237,13 +243,12 @@ void DnDServer::client_move_tile (DnDClient* client, Uuid tile_uuid, quint16 x,
 
   Tile* tile = *tile_iter;
 
-  if (!tile->get_perm (record->uuid, Tile::PERM_MOVE)) {
+  if (!tile->get_perm (record->player.get_uuid (), Tile::PERM_MOVE)) {
     client->server_message ("Move permission not granted", MESSAGE_ERROR);
     return;
   }
 
-  tile->set_x (x);
-  tile->set_y (y);
+  tile->move (x, y);
 
   for_all (_clients,
            [&] (ClientRecord* r)
@@ -268,7 +273,7 @@ void DnDServer::client_delete_tile (DnDClient* client, Uuid tile_uuid)
 
   Tile* tile = *tile_iter;
 
-  if (!tile->get_perm (record->uuid, Tile::PERM_MOVE)) {
+  if (!tile->get_perm (record->player.get_uuid (), Tile::PERM_MOVE)) {
     client->server_message ("Move permission not granted", MESSAGE_ERROR);
     return;
   }
@@ -300,7 +305,7 @@ void DnDServer::client_ping_pong (DnDClient* client)
              if (!r->active)
                return;
 
-             r->client->ping_pong_record (record->uuid, delay);
+             r->client->ping_pong_record (record->player.get_uuid (), delay);
            });
 }
 

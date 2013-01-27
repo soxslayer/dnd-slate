@@ -5,6 +5,7 @@
 #include <QMap>
 
 #include "uuid.h"
+#include "tile.h"
 
 class QWidget;
 class QPainter;
@@ -25,15 +26,15 @@ public:
 
   void set_map (QImage* image);
   void clear_map ();
-  void add_tile (GameTile* tile);
-  GameTile* delete_tile (Uuid uuid);
-  Uuid get_selected_uuid () const;
+  TilePointer get_selected () const;
 
 signals:
-  void tile_moved (Uuid uuid, int x, int y);
+  void tile_moved (const TilePointer& tile, int x, int y);
 
 public slots:
-  void move_tile (Uuid uuid, int x, int y);
+  void add_tile (const TilePointer& tile);
+  void update_tile (const TilePointer& tile);
+  void delete_tile (const TilePointer& tile);
 
 protected:
   virtual void drawBackground (QPainter* painter, const QRectF& rect);

@@ -3,10 +3,10 @@
 #include "image_tile.h"
 #include "game_board.h"
 
-ImageTile::ImageTile (Uuid uuid, const QString& image, QGraphicsItem* parent)
-  : GameTile (uuid, parent)
+ImageTile::ImageTile (const TilePointer& tile, QGraphicsItem* parent)
+  : GameTile (tile, parent)
 {
-  _pixmap = new QPixmap (image);
+  _pixmap = new QPixmap (tile->get_text ());
 
   _width = (_pixmap->width () + GameBoard::TILE_WIDTH - 1 )
            / GameBoard::TILE_WIDTH;

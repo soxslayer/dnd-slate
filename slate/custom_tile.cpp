@@ -10,14 +10,13 @@
 #include "custom_tile.h"
 #include "game_board.h"
 
-CustomTile::CustomTile (Uuid uuid, int width, int height, const QString& text,
-                        QGraphicsItem* parent)
-  : GameTile (uuid, parent),
-    _width (width),
-    _height (height)
+CustomTile::CustomTile (const TilePointer& tile, QGraphicsItem* parent)
+  : GameTile (tile, parent)
 {
-  int t_width = GameBoard::TILE_WIDTH * width + width - 1;
-  int t_height = GameBoard::TILE_HEIGHT * height + height - 1;
+  int t_width = GameBoard::TILE_WIDTH * tile->get_width ()
+                + tile->get_width () - 1;
+  int t_height = GameBoard::TILE_HEIGHT * tile->get_height ()
+                 + tile->get_height () - 1;
 
   _bg_pixmap = new QPixmap (t_width, t_height);
   _bg_pixmap->fill ();
@@ -34,7 +33,7 @@ CustomTile::CustomTile (Uuid uuid, int width, int height, const QString& text,
   GraphicsItemFlags f = flags () | QGraphicsItem::ItemClipsChildrenToShape;
   setFlags (f);
 
-  _text = new QGraphicsTextItem (text, this);
+  _text = new QGraphicsTextItem (tile->get_text (), this);
 
   QRectF text_bound = _text->boundingRect ();
   QRectF my_bound = boundingRect ();

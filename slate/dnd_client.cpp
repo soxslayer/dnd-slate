@@ -186,7 +186,7 @@ void DnDClient::image_begin (quint32 total_size, quint32 id)
 }
 
 void DnDClient::image_data (quint32 id, quint32 sequence,
-                            const uchar* data, quint64 size)
+                            const uchar* data, quint32 size)
 {
   quint64 msg_size = sizeof (DnDImageData) - 1 + size;
   DnDImageData* msg = (DnDImageData*)new char[msg_size];
@@ -456,11 +456,9 @@ void DnDClient::handle_message (const DnDMessageHeader* header, quint64 size)
       break;
     }
 
-    case DND_PING_PONG: {
-      const DnDPingPong* msg = (DnDPingPong*)header;
+    case DND_PING_PONG:
       ping_pong (this);
       break;
-    }
 
     case DND_PING_PONG_RECORD: {
       const DnDPingPongRecord* msg = (DnDPingPongRecord*)header;

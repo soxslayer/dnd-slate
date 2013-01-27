@@ -2,13 +2,14 @@
 #define __IMAGE_TILE__
 
 #include "game_tile.h"
+#include "tile.h"
 
 class QPixmap;
 
 class ImageTile : public GameTile
 {
 public:
-  ImageTile (Uuid uuid, const QString& image, QGraphicsItem* parent = 0);
+  ImageTile (const TilePointer& tile, QGraphicsItem* parent = 0);
 
   virtual int get_width () const { return _width; }
   virtual int get_height () const { return _height; }

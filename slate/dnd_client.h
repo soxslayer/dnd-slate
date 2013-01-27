@@ -58,7 +58,7 @@ signals:
   void load_image (DnDClient* client, const QString& file_name);
   void image_begin (DnDClient* client, quint32 total_size, quint32 id);
   void image_data (DnDClient* client, quint32 id, quint32 sequence,
-                   const uchar* data, quint64 size);
+                   const uchar* data, quint32 size);
   void image_end (DnDClient* client, quint32 id);
   void add_tile (DnDClient* client, Uuid tile_uuid, quint8 type, quint16 x,
                  quint16 y, quint16 w, quint16 h, const QString& text);
@@ -79,7 +79,7 @@ public slots:
   void load_image (const QString& file_name);
   void image_begin (quint32 total_size, quint32 id);
   void image_data (quint32 id, quint32 sequence, const uchar* data,
-                   quint64 size);
+                   quint32 size);
   void image_end (quint32 id);
   void add_tile (Uuid tile_uuid, quint8 type, quint16 x, quint16 y, quint16 w,
                  quint16 h, const QString& text);

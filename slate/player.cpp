@@ -24,60 +24,14 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <QDebug>
-#include <QStandardItemModel>
-#include <QStandardItem>
-#include <QString>
-#include <QAbstractItemView>
-#include <QModelIndex>
+#include "player.h"
 
-#include "player_list.h"
-
-Q_DECLARE_METATYPE (PlayerPointer);
-
-PlayerList::PlayerList (QWidget* parent)
-  : QListView (parent)
+Player::Player ()
+  : _me (false), _dm (false)
 {
-  _model = new QStandardItemModel (this);
-
-  setModel (_model);
-  setEditTriggers (QAbstractItemView::NoEditTriggers);
-
-  connect (this, SIGNAL (doubleClicked (const QModelIndex&)),
-           SLOT (item_double_clicked (const QModelIndex&)));
-
-  setMaximumWidth (150);
-  setSizePolicy (QSizePolicy::Minimum, QSizePolicy::Minimum);
 }
 
-void PlayerList::add_player (const PlayerPointer& player)
+Player::Player (Uuid uuid, const QString& name, bool is_me, bool is_dm)
+  : DnDObject (uuid), _name (name), _me (is_me), _dm (is_dm)
 {
-  QStandardItem* item = new QStandardItem (player->get_name ());
-  item->setData (QVariant::fromValue (player), Qt::UserRole);
-
-  _model->appendRow (item);
-  _model->sort (0);
-}
-
-void PlayerList::remove_player (const PlayerPointer& player)
-{
-  for (int i = 0; i < _model->rowCount (); ++i) {
-    QModelIndex idx = _model->index (i, 0);
-    PlayerPointer p = idx.data (Qt::UserRole).value<PlayerPointer> ();
-
-    if (p->get_uuid () == player->get_uuid ()) {
-      _model->removeRow (i);
-      break;
-    }
-  }
-}
-
-void PlayerList::clear ()
-{
-  _model->clear ();
-}
-
-void PlayerList::item_double_clicked (const QModelIndex& index)
-{
-  player_activated (index.data (Qt::UserRole).value<PlayerPointer> ());
 }

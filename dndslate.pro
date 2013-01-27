@@ -20,11 +20,15 @@ HEADERS += \
   slate/connect_dialog.h \
   slate/custom_tile.h \
   slate/dnd_client.h \
+  slate/dnd_controller.h \
+  slate/dnd_object.h \
   slate/dnd_server.h \
   slate/game_board.h \
   slate/game_tile.h \
   slate/image_tile.h \
   slate/lua_bindings.h \
+  slate/non_copyable.h \
+  slate/player.h \
   slate/player_list.h \
   slate/net_buffer_pool.h \
   slate/restricted_file_dialog.h \
@@ -45,11 +49,14 @@ SOURCES += \
   slate/connect_dialog.cpp \
   slate/custom_tile.cpp \
   slate/dnd_client.cpp \
+  slate/dnd_controller.cpp \
+  slate/dnd_object.cpp \
   slate/dnd_server.cpp \
   slate/game_board.cpp \
   slate/game_tile.cpp \
   slate/image_tile.cpp \
   slate/lua_bindings.cpp \
+  slate/player.cpp \
   slate/player_list.cpp \
   slate/net_buffer_pool.cpp \
   slate/restricted_file_dialog.cpp \

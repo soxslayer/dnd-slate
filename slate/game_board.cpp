@@ -9,6 +9,8 @@
 
 #include "game_board.h"
 #include "game_tile.h"
+#include "custom_tile.h"
+#include "image_tile.h"
 
 GameBoard::GameBoard (QWidget* parent)
   : QGraphicsView (parent),
@@ -61,52 +63,59 @@ void GameBoard::clear_map ()
   _tile_map.clear ();
 }
 
-void GameBoard::add_tile (GameTile* tile)
-{
-  /* Place larger tiles below smaller ones */
-  qreal z = 1.0 / (tile->get_width () * tile->get_height ());
-  tile->setZValue (z);
-  _scene->addItem (tile);
-  _tile_map.insert (tile->get_uuid (), tile);
-}
-
-GameTile* GameBoard::delete_tile (Uuid uuid)
-{
-  QMap<Uuid, GameTile*>::iterator tile_iter = _tile_map.find (uuid);
-
-  if (tile_iter == _tile_map.end ())
-    return NULL;
-
-  GameTile* tile = *tile_iter;
-
-  if (tile == _selected_item)
-    _selected_item = 0;
-
-  _tile_map.remove (uuid);
-  _scene->removeItem (tile);
-
-  return tile;
-}
-
-Uuid GameBoard::get_selected_uuid () const
+TilePointer GameBoard::get_selected () const
 {
   if (!_selected_item)
-    return UuidManager::UUID_INVALID;
+    return TilePointer ();
 
-  return _selected_item->get_uuid ();
+  return _selected_item->get_tile ();
 }
 
-void GameBoard::move_tile (Uuid uuid, int x, int y)
+void GameBoard::add_tile (const TilePointer& tile)
 {
-  QMap<Uuid, GameTile*>::iterator tile_iter = _tile_map.find (uuid);
+  GameTile* g_tile = nullptr;
+
+  switch (tile->get_type ()) {
+    case Tile::TILE_CUSTOM:
+      g_tile = new CustomTile (tile);
+      break;
+
+    case Tile::TILE_IMAGE:
+      g_tile = new ImageTile (tile);
+      break;
+  }
+
+  qreal z = 1.0 / (tile->get_width () * tile->get_height ());
+  g_tile->setZValue (z);
+
+  _scene->addItem (g_tile);
+  _tile_map.insert (tile->get_uuid (), g_tile);
+}
+
+void GameBoard::update_tile (const TilePointer& tile)
+{
+  auto tile_iter = _tile_map.find (tile->get_uuid ());
 
   if (tile_iter == _tile_map.end ())
     return;
 
-  GameTile* tile = *tile_iter;
+  (*tile_iter)->update ();
+}
 
-  tile->set_x (x);
-  tile->set_y (y);
+void GameBoard::delete_tile (const TilePointer& tile)
+{
+  auto tile_iter = _tile_map.find (tile->get_uuid ());
+
+  if (tile_iter == _tile_map.end ())
+    return;
+
+  if (*tile_iter == _selected_item)
+    _selected_item = nullptr;
+
+  _tile_map.remove (tile->get_uuid ());
+  _scene->removeItem (*tile_iter);
+
+  delete *tile_iter;
 }
 
 void GameBoard::drawBackground (QPainter* painter, const QRectF& rect)
@@ -170,7 +179,7 @@ void GameBoard::mousePressEvent (QMouseEvent* event)
     if (n_y > _height - _selected_item->get_height ())
       n_y = _height - _selected_item->get_height ();
 
-    tile_moved (_selected_item->get_uuid (), n_x, n_y);
+    tile_moved (_selected_item->get_tile (), n_x, n_y);
 
     _selected_item->set_selected (false);
     _selected_item = 0;

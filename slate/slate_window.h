@@ -31,12 +31,11 @@
 #include <QString>
 
 #include "uuid.h"
-#include "command.h"
+#include "player.h"
+#include "dnd_controller.h"
 
 class QAction;
 class QLabel;
-class DnDServer;
-class DnDClient;
 class ChatWidget;
 class PlayerList;
 class GameBoard;
@@ -60,28 +59,20 @@ private slots:
   void connect_triggered (bool checked);
   void disconnect_triggered (bool checked);
   void add_tile_triggered (bool checked);
+  void player_activated (const PlayerPointer& player);
+  void tile_moved (const TilePointer& tile, int x, int y);
   void delete_tile_triggered (bool checked);
+  void send_message (const QString& who, const QString& message);
   void server_connected ();
   void server_disconnected ();
-  void send_message (const QString& who, const QString& message);
-  void comm_proto_resp (DnDClient* client, quint16 major, quint16 minor);
-  void server_message (DnDClient* client, const QString& msg, int flags);
-  void user_add_resp (DnDClient* client, Uuid uuid, const QString& name);
-  void user_del (DnDClient* client, Uuid);
-  void chat_message (DnDClient* client, Uuid src_uuid, Uuid dst_uuid,
-                     const QString& message, int flags);
-  void map_begin (DnDClient* client, quint32 size, quint32 id);
-  void map_data (DnDClient* client, quint32 id, quint32 sequence,
-                 const uchar* data, quint64 size);
-  void map_end (DnDClient* client, quint32 id);
-  void add_tile (DnDClient* client, Uuid tile_uuid, quint8 type, quint16 x,
-                 quint16 y, quint16 w, quint16 h, const QString& text);
-  void move_tile (DnDClient* client, Uuid tile_uuid, quint16 x, quint16 y);
-  void delete_tile (DnDClient* client, Uuid tile_uuid);
-  void ping_pong (DnDClient* client);
-  void ping_pong_record (DnDClient* client, Uuid uuid, quint32 delay);
-  void player_activated (Uuid uuid);
-  void tile_moved (Uuid tile_uuid, int x, int y);
+  void player_connected (const PlayerPointer& player);
+  void player_disconnected (const PlayerPointer& player);
+  void server_message (const QString& msg, int level, bool internal);
+  void chat_message (const PlayerPointer& sender,
+                     const PlayerPointer& receiver,
+                     const QString& message);
+  void map_updated (const ImageDataPointer& data);
+  //void delete_tile (DnDClient* client, Uuid tile_uuid);
 
 private:
   QAction* _open_action;
@@ -92,18 +83,10 @@ private:
   QLabel* _status_label;
   ChatWidget* _chat_widget;
   PlayerList* _player_list;
-  DnDServer* _server;
-  DnDClient* _client;
-  QString _name;
   GameBoard* _board;
-  QByteArray* _map_buff;
-  quint32 _map_transfer_id;
-  Command<SlateWindow> _connect_command;
-  Command<SlateWindow> _disconnect_command;
+  DnDController* _controller;
 
   void disconnect_client ();
-  bool connect_client (const QString& host, quint16 port,
-                       const QString& name);
 };
 
 #endif /* __SLATE_WINDOW__ */

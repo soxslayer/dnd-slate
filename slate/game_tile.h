@@ -3,17 +3,15 @@
 
 #include <QGraphicsPixmapItem>
 
-#include "uuid.h"
-#include "game_board.h"
+#include "tile.h"
 
 class GameTile : public QGraphicsPixmapItem
 {
 public:
-  GameTile (Uuid uuid, QGraphicsItem* parent = 0);
+  GameTile (const TilePointer& tile, QGraphicsItem* parent = 0);
 
-  Uuid get_uuid () const { return _uuid; }
-  void set_x (int x) { setX (x * GameBoard::TILE_WIDTH + x + 1); }
-  void set_y (int y) { setY (y * GameBoard::TILE_HEIGHT + y + 1); }
+  const TilePointer& get_tile () const { return _tile; }
+  void update ();
   void set_selected (bool selected = true);
 
   virtual int get_width () const = 0;
@@ -25,7 +23,7 @@ protected:
                       QWidget* widget);
 
 private:
-  Uuid _uuid;
+  TilePointer _tile;
   bool _selected;
 };
 

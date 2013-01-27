@@ -30,8 +30,8 @@
 template<typename I, typename F, typename... ARGS>
 void for_all (I& i, F f, ARGS... a)
 {
-  typename I::iterator b = i.begin ();
-  typename I::iterator b_end = i.end ();
+  auto b = i.begin ();
+  auto b_end = i.end ();
 
   for (; b != b_end; ++b)
     f (*b, a...);

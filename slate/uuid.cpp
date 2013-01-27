@@ -26,9 +26,8 @@
 
 #include "uuid.h"
 
-UuidManager::UuidManager (QObject* parent)
-  : QObject (parent),
-    _uuid (0)
+UuidManager::UuidManager ()
+  : _uuid (0)
 {
 }
 

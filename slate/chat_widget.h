@@ -30,7 +30,7 @@
 #include <QWidget>
 #include <QColor>
 
-#include "uuid.h"
+#include "player.h"
 
 class QTextEdit;
 class QLineEdit;
@@ -41,8 +41,8 @@ class ChatWidget : public QWidget
 
 public:
   enum {
-    ChatFromMe = 1,
-    ChatWhisper = 2
+    ChatWhisper = 1,
+    ChatFromMe = 2
   };
 
   ChatWidget (QWidget* parent = 0);
@@ -50,7 +50,7 @@ public:
   void insert_string (const QString& string, QColor& colour,
                       bool new_line = true);
   void insert_status (const QString& status);
-  void insert_message (const QString& message, const QString& who,
+  void insert_message (const PlayerPointer& who, const QString& message,
                        int flags);
   void set_entry (const QString& entry);
 

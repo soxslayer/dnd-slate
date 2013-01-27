@@ -24,60 +24,34 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <QDebug>
-#include <QStandardItemModel>
-#include <QStandardItem>
+#ifndef __PLAYER__
+#define __PLAYER__
+
 #include <QString>
-#include <QAbstractItemView>
-#include <QModelIndex>
+#include <QSharedPointer>
 
-#include "player_list.h"
+#include "dnd_object.h"
 
-Q_DECLARE_METATYPE (PlayerPointer);
-
-PlayerList::PlayerList (QWidget* parent)
-  : QListView (parent)
+class Player : public DnDObject
 {
-  _model = new QStandardItemModel (this);
+public:
+  Player ();
+  Player (Uuid uuid, const QString& name, bool is_me = false,
+          bool is_dm = false);
 
-  setModel (_model);
-  setEditTriggers (QAbstractItemView::NoEditTriggers);
+  const QString& get_name () const { return _name; }
+  void set_name (const QString& name) { _name = name; }
+  bool get_me () const { return _me; }
+  void set_me (bool is_me = true) { _me = is_me; }
+  bool get_dm () const { return _dm; }
+  void set_dm (bool is_dm = true) { _dm = is_dm; }
 
-  connect (this, SIGNAL (doubleClicked (const QModelIndex&)),
-           SLOT (item_double_clicked (const QModelIndex&)));
+private:
+  QString _name;
+  bool _me;
+  bool _dm;
+};
 
-  setMaximumWidth (150);
-  setSizePolicy (QSizePolicy::Minimum, QSizePolicy::Minimum);
-}
+typedef QSharedPointer<Player> PlayerPointer;
 
-void PlayerList::add_player (const PlayerPointer& player)
-{
-  QStandardItem* item = new QStandardItem (player->get_name ());
-  item->setData (QVariant::fromValue (player), Qt::UserRole);
-
-  _model->appendRow (item);
-  _model->sort (0);
-}
-
-void PlayerList::remove_player (const PlayerPointer& player)
-{
-  for (int i = 0; i < _model->rowCount (); ++i) {
-    QModelIndex idx = _model->index (i, 0);
-    PlayerPointer p = idx.data (Qt::UserRole).value<PlayerPointer> ();
-
-    if (p->get_uuid () == player->get_uuid ()) {
-      _model->removeRow (i);
-      break;
-    }
-  }
-}
-
-void PlayerList::clear ()
-{
-  _model->clear ();
-}
-
-void PlayerList::item_double_clicked (const QModelIndex& index)
-{
-  player_activated (index.data (Qt::UserRole).value<PlayerPointer> ());
-}
+#endif /* __PLAYER__ */
