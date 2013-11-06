@@ -37,11 +37,11 @@ ImageId::ImageId (const char* id, int size)
 {
   if (size == -1)
     size = strlen (id);
-  else if (size > DND_IMAGE_ID_LEN)
-    size = DND_IMAGE_ID_LEN;
+  else if (size > ID_LEN)
+    size = ID_LEN;
 
   _id = QString::fromAscii (id, size);;
-  _id = _id.leftJustified (DND_IMAGE_ID_LEN, (QChar)'0', true);
+  _id = _id.leftJustified (ID_LEN, (QChar)'0', true);
 }
 
 ImageId::ImageId (const ImageId& id)
@@ -65,7 +65,7 @@ const ImageId& ImageId::operator= (const ImageId& id)
 const ImageId& ImageId::operator= (const QString& id)
 {
   _id = id;
-  _id.leftJustified (DND_IMAGE_ID_LEN, (QChar)'0', true);
+  _id.leftJustified (ID_LEN, (QChar)'0', true);
 
   return *this;
 }

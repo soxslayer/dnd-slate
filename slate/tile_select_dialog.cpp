@@ -33,10 +33,9 @@
 #include <QBoxLayout>
 #include <QLabel>
 #include <QMessageBox>
-#include <QDir>
+#include <QFileDialog>
 
 #include "tile_select_dialog.h"
-#include "restricted_file_dialog.h"
 
 TileSelectDialog::TileSelectDialog (QWidget* parent)
   : QDialog (parent)
@@ -140,10 +139,9 @@ void TileSelectDialog::custom_tile_toggled (bool checked)
 
 void TileSelectDialog::choose_button_pressed ()
 {
-  QDir image_root ("image:.");
-  RestrictedFileDialog rfd (image_root.path (), this);
-  if (rfd.exec ())
-    _load_tile_line_edit->setText (rfd.get_selected_file_restricted ());
+  QString tile_fn = QFileDialog::getOpenFileName (this, "Select Tile", ".",
+                                                  "Images (*.png)");
+  _load_tile_line_edit->setText (tile_fn);
 }
 
 void TileSelectDialog::verify_input ()

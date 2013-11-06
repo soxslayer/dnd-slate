@@ -29,6 +29,8 @@
 
 #include <QtGlobal>
 
+#include "image_id.h"
+
 #define COMM_PROTO_MAJOR 0
 #define COMM_PROTO_MINOR 3
 
@@ -115,20 +117,18 @@ struct DnDChatMessage
   char message[1];
 };
 
-#define DND_IMAGE_ID_LEN 40
-
 struct DnDLoadMap
 {
   DnDMessageHeader header;
   quint16 w;
   quint16 h;
-  char image_id[DND_IMAGE_ID_LEN];
+  char image_id[ImageId::ID_LEN];
 };
 
 struct DnDRequestImage
 {
   DnDMessageHeader header;
-  char image_id[DND_IMAGE_ID_LEN];
+  char image_id[ImageId::ID_LEN];
 };
 
 struct DnDImageBegin
@@ -155,7 +155,7 @@ struct DnDAddTile
   quint16 y;
   quint16 w;
   quint16 h;
-  char text[1];
+  char text[ImageId::ID_LEN];
 };
 
 struct DnDMoveTile
@@ -187,7 +187,7 @@ struct DnDPingPongRecord
 struct DnDImageQuery
 {
   DnDMessageHeader header;
-  char image_id[DND_IMAGE_ID_LEN];
+  char image_id[ImageId::ID_LEN];
 };
 
 #pragma pack()

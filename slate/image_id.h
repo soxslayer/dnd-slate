@@ -33,6 +33,11 @@
 class ImageId
 {
 public:
+  enum
+  {
+    ID_LEN = 40
+  };
+
   ImageId ();
   ImageId (const char* id, int size = -1);
   ImageId (const ImageId& id);

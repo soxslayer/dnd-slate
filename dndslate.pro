@@ -5,7 +5,7 @@ QT += network
 CONFIG += debug debug_and_release debug_and_release_target warn_on \
           link_pkgconfig
 
-PKGCONFIG += lua
+PKGCONFIG += lua protobuf
 
 QMAKE_CXXFLAGS += -std=c++0x
 
